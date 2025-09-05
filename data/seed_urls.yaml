@@ -1,0 +1,7 @@
+# Add authoritative Australian sources (examples below are placeholders).
+# PBS Medicine Search: https://www.pbs.gov.au/medicine
+# TGA CMI/PI documents: https://www.tga.gov.au/resources/consumer-medicine-information
+# - Use specific drug pages for your seed set, e.g. atorvastatin, metformin, sertraline.
+urls:
+  - "https://www.pbs.gov.au/medicine"      # Replace with specific medicine listing page
+  - "https://www.tga.gov.au/"              # Replace with specific CMI/PI URLs

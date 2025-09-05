@@ -1,0 +1,6 @@
+# Placeholder figures for MVP — update from official PBS sources before use.
+pbs:
+  general_copay: 31.60
+  concession_copay: 7.70
+  safety_net_general_threshold: 1674.00
+  safety_net_concession_threshold: 0.00
