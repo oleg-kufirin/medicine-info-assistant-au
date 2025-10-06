@@ -1,7 +1,32 @@
 # Add authoritative Australian sources (examples below are placeholders).
-# PBS Medicine Search: https://www.pbs.gov.au/medicine
-# TGA CMI/PI documents: https://www.tga.gov.au/resources/consumer-medicine-information
-# - Use specific drug pages for your seed set, e.g. atorvastatin, metformin, sertraline.
+# PBS Medicine Search:  https://www.pbs.gov.au/pbs/home
+
+# Suggested starter set (pick ~20): atorvastatin, rosuvastatin, metformin, gliclazide MR, 
+# empagliflozin, semaglutide, amlodipine, perindopril, irbesartan, candesartan, sertraline, 
+# escitalopram, venlafaxine, pantoprazole, esomeprazole, amoxicillin, amoxicillin/clavulanate, 
+# budesonide/formoterol, salbutamol, fluticasone, budesonide, apixaban, rivaroxaban, 
+# levothyroxine, colecalciferol.
+
 urls:
-  - "https://www.pbs.gov.au/medicine"      # Replace with specific medicine listing page
-  - "https://www.tga.gov.au/"              # Replace with specific CMI/PI URLs
+  # empagliflozin 10 mg tablet, 30
+  - "https://www.pbs.gov.au/medicine/item/10206E-12918X-13695T-13845Q-14018T-14092Q"
+  # empagliflozin 25 mg tablet, 30
+  - "https://www.pbs.gov.au/medicine/item/10202Y-13920P"
+  # empagliflozin 10 mg + linagliptin 5 mg tablet, 30
+  - "https://www.pbs.gov.au/medicine/item/11269D-13904T"
+  # empagliflozin 25 mg + linagliptin 5 mg tablet, 30
+  - "https://www.pbs.gov.au/medicine/item/11303X-13958P"
+  # empagliflozin 5 mg + metformin hydrochloride 500 mg tablet, 60
+  - "https://www.pbs.gov.au/medicine/item/10626G-14029J"
+  # empagliflozin 5 mg + metformin hydrochloride 1 g tablet, 60
+  - "https://www.pbs.gov.au/medicine/item/10627H-13852C"
+  # empagliflozin 12.5 mg + metformin hydrochloride 500 mg tablet, 60
+  - "https://www.pbs.gov.au/medicine/item/10633P-13903R"
+  # empagliflozin 12.5 mg + metformin hydrochloride 1 g tablet, 60
+  - "https://www.pbs.gov.au/medicine/item/10677Y-13987E"
+  # semaglutide 1.34 mg/mL injection, 1 x 1.5 mL pen device
+  - "https://www.pbs.gov.au/medicine/item/12080T-14149Q"
+  # semaglutide 0.68 mg/mL injection, 1 x 3 mL pen device
+  - "https://www.pbs.gov.au/medicine/item/14844G-14846J"
+  # semaglutide 1.34 mg/mL injection, 1 x 3 mL pen device
+  - "https://www.pbs.gov.au/medicine/item/12075M-14163K"
