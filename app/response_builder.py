@@ -1,8 +1,6 @@
 from __future__ import annotations
-from typing import Dict, List, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from app.retrieval import Passage
+from typing import Dict, List
+from retrieval_agent import Passage
 
 
 EMPTY_RESULT = {
@@ -26,6 +24,39 @@ def synthesize_answer(query: str, passages: List["Passage"], summary_text: str |
         if snippet:
             bullets.append({"text": snippet, "score": float(passage.score)})
         citations.append({"url": passage.url or "", "section": passage.section or ""})
+
+    return {
+        "summary_text": summary_text,
+        "bullets": bullets[:5],
+        "citations": citations[:5],
+        "disclaimer": "General information only, not medical advice.",
+    }
+
+
+def synthesize_answer_serial(query: str, passages: List[Dict[str, object]], summary_text: str | None = None) -> Dict:
+    """Variant of synthesize_answer for serialized passage dictionaries."""
+    if not passages:
+        return EMPTY_RESULT.copy()
+
+    bullets: List[Dict[str, str | float]] = []
+    citations: List[Dict[str, str]] = []
+
+    for passage in passages:
+        text = str(passage.get("text", "") or "")
+        snippet = text.strip().split("\n")[0][:800]
+        if snippet:
+            score = passage.get("score", 0.0)
+            try:
+                score_value = float(score)
+            except (TypeError, ValueError):
+                score_value = 0.0
+            bullets.append({"text": snippet, "score": score_value})
+        citations.append(
+            {
+                "url": str(passage.get("url", "") or ""),
+                "section": str(passage.get("section", "") or ""),
+            }
+        )
 
     return {
         "summary_text": summary_text,

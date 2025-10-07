@@ -137,7 +137,8 @@ if submitted and query:
     st.subheader("Your query")
     st.write(query)
 
-    result = agent_runner.run_graph(query)
+    workflow = agent_runner.AgentWorkflow()
+    result = workflow.run(query)
 
     # Display safety and intent decision
     dec = result.get("safety_intent_decision") or {}

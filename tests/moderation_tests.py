@@ -16,9 +16,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in map(str, sys.path):
     sys.path.insert(0, str(ROOT))
     sys.path.insert(0, str(ROOT / "app"))
-from app import moderation
+from app.moderation_agent import ModerationAgent
 
 Case = Dict[str, object]
+
+AGENT = ModerationAgent()
 
 CASES_LONG: List[Case] = [
     # Self-harm / suicide (block)
@@ -211,7 +213,7 @@ def main() -> int:
         expected = case["expected"]  # type: ignore[index]
 
         start_time = time.perf_counter()
-        decision = moderation.classify_safety_and_intent(query)  # type: ignore[arg-type]
+        decision = AGENT.classify_safety_and_intent(query)  # type: ignore[arg-type]
         elapsed = time.perf_counter() - start_time
         total_inference_time += elapsed
 
