@@ -1,11 +1,15 @@
 from pathlib import Path
 
+import logging
 import streamlit as st
 import agent_runner
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 HERO_IMAGE = ASSETS_DIR / "hero-banner.jpg"
+
+logging.basicConfig(level=logging.WARNING)
+logging.getLogger(agent_runner.__name__).setLevel(logging.DEBUG)
 
 st.set_page_config(
     page_title="Patient Information Assistant (CMI/PI) - MVP",

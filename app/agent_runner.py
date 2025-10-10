@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List, TypedDict
 from langgraph.graph import StateGraph, END
 from moderation_agent import ModerationAgent
@@ -6,11 +7,16 @@ from summarize_agent import SummarizationAgent
 
 import response_builder
 
+
+logger = logging.getLogger(__name__)
+
+
 class AgentState(TypedDict, total=False):
     query: str
     safety_intent_decision: Dict[str, Any]
     passages: List[Passage] | List[Dict[str, Any]]
     answer: Dict[str, Any]
+
 
 class AgentWorkflow:
     def __init__(self) -> None:
@@ -25,6 +31,7 @@ class AgentWorkflow:
 
     def build_workflow(self) -> Any:
         """Create and compile the multi-agent workflow."""
+        logger.debug("Compiling agent workflow graph")
         workflow = StateGraph(AgentState)
 
         # Add nodes
@@ -51,6 +58,7 @@ class AgentWorkflow:
     def _moderation_step(self, state: AgentState) -> AgentState:
         """Perform moderation on the query."""
         query = state.get("query", "")
+        logger.debug("Running moderation step", extra={"query_preview": query[:80]})
         decision = self.moderation.classify_safety_and_intent(query)
 
         # Determine if the query is allowed based on moderation results
@@ -64,6 +72,14 @@ class AgentWorkflow:
             "intent_allow": decision.intent_allow,
             "message": decision.message,
         }
+        logger.debug(
+            "Moderation decision completed",
+            extra={
+                "allow": allow,
+                "safety_label": decision.safety_label,
+                "intent_label": decision.intent_label,
+            },
+        )
         return state
 
 
@@ -90,8 +106,16 @@ class AgentWorkflow:
     def _retrieval_step(self, state: AgentState) -> AgentState:
         """Retrieve relevant passages based on the query."""
         query = state.get("query", "")
+        logger.debug("Running retrieval step", extra={"query_preview": query[:80]})
         passages = self.retriever.retrieve(query)
         state["passages"] = passages
+        logger.debug(
+            "Retrieval step completed",
+            extra={
+                "passage_count": len(passages),
+                "top_score": passages[0].score if passages else None,
+            },
+        )
         return state
 
 
@@ -99,16 +123,24 @@ class AgentWorkflow:
         """Summarize the retrieved passages and synthesize an answer."""
         query = state.get("query", "")
         passages = state.get("passages", [])
+        logger.debug(
+            "Running summarization step",
+            extra={"query_preview": query[:80], "passage_count": len(passages)},
+        )
         summary_text = self.summarizer.summarize_passages(query, passages) if passages else None
         answer = response_builder.synthesize_answer(query, passages, summary_text=summary_text)
         state["answer"] = answer
+        logger.debug(
+            "Summarization step completed",
+            extra={"summary_available": bool(summary_text), "answer_has_bullets": bool(answer.get("bullets"))},
+        )
         return state
     
 
     def run(self, query: str) -> AgentState:
         """Run the compiled workflow with the given query."""
         try:
-            print(f"[DEBUG] Starting full_pipeline with question='{query}'")
+            logger.debug("Starting agent workflow", extra={"query": query})
             initial_state: AgentState = {
                 "query": query,
                 "safety_intent_decision": {},
@@ -118,5 +150,5 @@ class AgentWorkflow:
             final_state = self.compiled_workflow.invoke(initial_state)
             return final_state
         except Exception as e:
-            print(f"[ERROR] Exception during workflow execution: {e}")
+            logger.exception("Agent workflow execution failed", extra={"query": query})
             raise
