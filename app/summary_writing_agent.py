@@ -15,7 +15,7 @@ except Exception:  # pragma: no cover - optional dependency
 
 load_dotenv()
 
-class SummarizationAgent:
+class SummaryWritingAgent:
     """Agent for summarizing text passages using a language model."""
 
     PASSAGE_SNIPPET_LIMIT = 800
@@ -34,7 +34,7 @@ class SummarizationAgent:
                 continue
 
             snippet = " ".join(snippet.split())
-            snippet = snippet[: SummarizationAgent.PASSAGE_SNIPPET_LIMIT]
+            snippet = snippet[: SummaryWritingAgent.PASSAGE_SNIPPET_LIMIT]
 
             meta: List[str] = []
             section = getattr(passage, "section", None)

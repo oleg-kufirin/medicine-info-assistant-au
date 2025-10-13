@@ -3,7 +3,7 @@ from typing import Any, Dict, List, TypedDict
 from langgraph.graph import StateGraph, END
 from moderation_agent import ModerationAgent
 from retrieval_agent import RetrievalAgent, Passage
-from summarize_agent import SummarizationAgent
+from summary_writing_agent import SummaryWritingAgent
 
 import response_builder
 
@@ -15,6 +15,8 @@ class AgentState(TypedDict, total=False):
     query: str
     safety_intent_decision: Dict[str, Any]
     passages: List[Passage] | List[Dict[str, Any]]
+    summary_draft: str | None
+    summary_critique: str | None
     answer: Dict[str, Any]
 
 
@@ -25,7 +27,7 @@ class AgentWorkflow:
         """
         self.moderation = ModerationAgent() 
         self.retriever = RetrievalAgent()
-        self.summarizer = SummarizationAgent()
+        self.summary_writer = SummaryWritingAgent()
         self.compiled_workflow = self.build_workflow()
 
 
@@ -37,7 +39,8 @@ class AgentWorkflow:
         # Add nodes
         workflow.add_node("moderation", self._moderation_step)
         workflow.add_node("retrieval", self._retrieval_step)
-        workflow.add_node("summarization", self._summarization_step)
+        workflow.add_node("summary_writing", self._summary_writing_step)
+        workflow.add_node("response_building", self._response_building_step)
 
         # Add edges
         workflow.set_entry_point("moderation")
@@ -49,9 +52,10 @@ class AgentWorkflow:
                 False: END,
             },
         )
-        workflow.add_edge("retrieval", "summarization")
-        workflow.add_edge("summarization", END)
-
+        workflow.add_edge("retrieval", "summary_writing")
+        workflow.add_edge("summary_writing", "response_building")
+        workflow.add_edge("response_building", END)
+        
         return workflow.compile()
 
 
@@ -119,23 +123,40 @@ class AgentWorkflow:
         return state
 
 
-    def _summarization_step(self, state: AgentState) -> AgentState:
+    def _summary_writing_step(self, state: AgentState) -> AgentState:
         """Summarize the retrieved passages and synthesize an answer."""
         query = state.get("query", "")
         passages = state.get("passages", [])
         logger.debug(
-            "Running summarization step",
+            "Running summary writing step",
             extra={"query_preview": query[:80], "passage_count": len(passages)},
         )
-        summary_text = self.summarizer.summarize_passages(query, passages) if passages else None
+        summary_text = self.summary_writer.summarize_passages(query, passages) if passages else None
+        self.summary_draft = summary_text if summary_text else None
+        logger.debug(
+            "Summary writing step completed",
+            extra={"draft_summary_available": bool(summary_text), "draft_summary_length": len(summary_text) if summary_text else 0},
+        )
+        return state
+
+
+    def _response_building_step(self, state: AgentState) -> AgentState:
+        """Build the final answer response."""
+        query = state.get("query", "")
+        passages = state.get("passages", [])
+        summary_text = self.summary_draft if hasattr(self, 'summary_draft') else None
+        logger.debug(
+            "Running response builder step",
+            extra={"query_preview": query[:80], "passage_count": len(passages), "draft_summary_available": bool(summary_text)},
+        )
         answer = response_builder.synthesize_answer(query, passages, summary_text=summary_text)
         state["answer"] = answer
         logger.debug(
-            "Summarization step completed",
-            extra={"summary_available": bool(summary_text), "answer_has_bullets": bool(answer.get("bullets"))},
+            "Response builder step completed",
+            extra={"answer_built": bool(answer)},
         )
         return state
-    
+
 
     def run(self, query: str) -> AgentState:
         """Run the compiled workflow with the given query."""
