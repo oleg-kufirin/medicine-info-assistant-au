@@ -177,9 +177,22 @@ if submitted and query:
         st.markdown("### Answer")
 
         summary = answer.get("summary_text")
-        if summary:
-            st.markdown("**Summary**")
-            st.write(summary)
+        initial_summary = result.get("summary_initial")
+        if summary or initial_summary:
+            if summary and initial_summary and summary.strip() != initial_summary.strip():
+                revised_tab, initial_tab = st.tabs(["Revised Summary", "Initial Draft"])
+                with revised_tab:
+                    st.markdown("**Revised Summary**")
+                    st.write(summary)
+                with initial_tab:
+                    st.markdown("**Initial Draft Summary**")
+                    st.write(initial_summary)
+            elif summary:
+                st.markdown("**Summary**")
+                st.write(summary)
+            elif initial_summary:
+                st.markdown("**Initial Draft Summary**")
+                st.write(initial_summary)
 
         bullets = answer.get("bullets", [])
         if bullets:
