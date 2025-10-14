@@ -35,7 +35,7 @@ class ReflectionPayload(BaseModel):
 class ReflectionAgent:
     """Agent that critiques a summary draft and identifies missing context."""
 
-    PASSAGE_SNIPPET_LIMIT = 600
+    PASSAGE_SNIPPET_LIMIT = 1000
 
     def __init__(self) -> None:
         self._chain: Any = None
@@ -58,7 +58,7 @@ class ReflectionAgent:
             snippet = " ".join(str(text).strip().split())
             if not snippet:
                 continue
-            snippet = snippet[: ReflectionAgent.PASSAGE_SNIPPET_LIMIT]
+            # snippet = snippet[: ReflectionAgent.PASSAGE_SNIPPET_LIMIT]
 
             meta: List[str] = []
             if section:
@@ -84,7 +84,7 @@ class ReflectionAgent:
         llm = ChatGroq(groq_api_key=api_key, model_name=model, temperature=0.2)
         structured_llm = llm.with_structured_output(ReflectionPayload)
 
-        system_prompt = load_prompt("system_reflection")
+        system_prompt = load_prompt("system_reflection_v2")
         if not system_prompt:
             return None
 
