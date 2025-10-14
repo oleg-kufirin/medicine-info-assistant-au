@@ -4,9 +4,14 @@ import logging
 import streamlit as st
 import agent_runner
 
-ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+BASE_DIR = Path(__file__).resolve().parent
+ASSETS_DIR = BASE_DIR / "assets"
+DATA_DIR = BASE_DIR / "data"
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 HERO_IMAGE = ASSETS_DIR / "hero-banner.jpg"
+DRUG_NAMES_PATH = DATA_DIR / "rag_drug_names.txt"
+SAMPLE_QUESTIONS_PATH = DATA_DIR / "sample_questions.txt"
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger(agent_runner.__name__).setLevel(logging.DEBUG)
@@ -41,15 +46,20 @@ CUSTOM_CSS = """
     color: #1e3a5f;
     margin-bottom: 1.5rem;
 }
-.blue-pill {
-    display: inline-block;
-    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 70%);
-    color: #ffffff;
-    padding: 0.35rem 1rem;
-    border-radius: 999px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
+.pill-button button {
+    border-radius: 999px !important;
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 70%) !important;
+    color: #ffffff !important;
+    padding: 0.35rem 1rem !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 100%;
+}
+.pill-button button:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%) !important;
 }
 .stButton > button {
     background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
@@ -66,14 +76,6 @@ CUSTOM_CSS = """
 .stTextInput > div > div > input {
     border-radius: 12px;
     border: 1px solid #93c5fd;
-}
-.result-card {
-    background: rgba(255, 255, 255, 0.94);
-    border-left: 4px solid #2563eb;
-    border-radius: 16px;
-    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.1);
-    padding: 28px 32px;
-    margin-top: 1.5rem;
 }
 .highlight-list ul {
     padding-left: 1.2rem;
@@ -100,11 +102,40 @@ CUSTOM_CSS = """
 
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
+if "pill_state" not in st.session_state:
+    st.session_state.pill_state = {
+        "drug_list": False,
+        "sample_questions": False,
+    }
+
+@st.cache_data(show_spinner=False)
+def load_lines(path: Path) -> list[str]:
+    try:
+        raw_text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return []
+    return [line.strip() for line in raw_text.splitlines() if line.strip()]
+
+RAG_DRUG_NAMES = load_lines(DRUG_NAMES_PATH)
+SAMPLE_QUESTIONS = load_lines(SAMPLE_QUESTIONS_PATH)
+
 hero_container = st.container()
 with hero_container:
     left, right = st.columns([3, 2])
     with left:
-        st.markdown('<span class="blue-pill">CMI / PI SEARCH</span>', unsafe_allow_html=True)
+        pill_row = st.columns([1.1, 2, 4])
+        with pill_row[0]:
+            st.markdown('<div class="pill-button">', unsafe_allow_html=True)
+            if st.button("Drug list", key="drug_list_button"):
+                st.session_state.pill_state["drug_list"] = True
+                st.session_state.pill_state["sample_questions"] = False
+            st.markdown("</div>", unsafe_allow_html=True)
+        with pill_row[1]:
+            st.markdown('<div class="pill-button">', unsafe_allow_html=True)
+            if st.button("Sample questions", key="sample_questions_button"):
+                st.session_state.pill_state["sample_questions"] = True
+                st.session_state.pill_state["drug_list"] = False
+            st.markdown("</div>", unsafe_allow_html=True)
         st.markdown(
             (
                 "<div class='hero-card'>"
@@ -126,6 +157,24 @@ with hero_container:
                 "<div class='hero-placeholder'>Upload a hero image to app/assets/hero-banner.jpg to customize this space.</div>",
                 unsafe_allow_html=True,
             )
+
+pill_state = st.session_state.get("pill_state", {})
+if pill_state.get("drug_list"):
+    if RAG_DRUG_NAMES:
+        drug_list_display = ", ".join(RAG_DRUG_NAMES)
+        st.info(f"Available RAG entries: {drug_list_display}")
+    else:
+        st.info(
+            "No drugs configured yet. Update `app/data/rag_drug_names.txt` to keep this list in sync with your RAG."
+        )
+elif pill_state.get("sample_questions"):
+    if SAMPLE_QUESTIONS:
+        sample_questions_display = "\n".join(f"- {question}" for question in SAMPLE_QUESTIONS)
+        st.info(f"Sample question prompts:\n{sample_questions_display}")
+    else:
+        st.info(
+            "No sample questions configured yet. Update `app/data/sample_questions.txt` to keep this list current."
+        )
 
 with st.form(key="query_form"):
     st.write("### Ask about a medicine")

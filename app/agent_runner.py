@@ -115,8 +115,8 @@ class AgentWorkflow:
             )
             return state
         finally:
-            elapsed_ms = (perf_counter() - start_time) * 1000
-            logger.info("Step latency - Moderation: %.2f ms", elapsed_ms)
+            elapsed_s = perf_counter() - start_time
+            logger.info("Step latency - Moderation: %.2f s", elapsed_s)
 
 
     def _decide_after_moderation(self, state: AgentState) -> bool:
@@ -157,8 +157,8 @@ class AgentWorkflow:
             )
             return state
         finally:
-            elapsed_ms = (perf_counter() - start_time) * 1000
-            logger.info("Step latency - Retrieval: %.2f ms", elapsed_ms)
+            elapsed_s = perf_counter() - start_time
+            logger.info("Step latency - Retrieval: %.2f s", elapsed_s)
 
 
     def _summary_writing_step(self, state: AgentState) -> AgentState:
@@ -189,8 +189,8 @@ class AgentWorkflow:
 
             return state
         finally:
-            elapsed_ms = (perf_counter() - start_time) * 1000
-            logger.info("Step latency - Summary Writing: %.2f ms", elapsed_ms)
+            elapsed_s = perf_counter() - start_time
+            logger.info("Step latency - Summary Writing: %.2f s", elapsed_s)
 
 
     def _reflection_step(self, state: AgentState) -> AgentState:
@@ -227,8 +227,8 @@ class AgentWorkflow:
             )
             return state
         finally:
-            elapsed_ms = (perf_counter() - start_time) * 1000
-            logger.info("Step latency - Reflection: %.2f ms", elapsed_ms)
+            elapsed_s = perf_counter() - start_time
+            logger.info("Step latency - Reflection: %.2f s", elapsed_s)
             logger.info("Critique notes: \n %s", critique)
             logger.info("Needs additional context: %s", needs_context)
             if wiki_queries:
@@ -299,8 +299,8 @@ class AgentWorkflow:
                 logger.debug("Revision failed; retaining original draft summary")
             return state
         finally:
-            elapsed_ms = (perf_counter() - start_time) * 1000
-            logger.info("Step latency - Summary Revision: %.2f ms", elapsed_ms)
+            elapsed_s = perf_counter() - start_time
+            logger.info("Step latency - Summary Revision: %.2f s", elapsed_s)
 
 
     def _response_building_step(self, state: AgentState) -> AgentState:
@@ -322,12 +322,13 @@ class AgentWorkflow:
             )
             return state
         finally:
-            elapsed_ms = (perf_counter() - start_time) * 1000
-            logger.info("Step latency - Response Builder: %.2f ms", elapsed_ms)
+            elapsed_s = perf_counter() - start_time
+            logger.info("Step latency - Response Builder: %.2f s", elapsed_s)
 
 
     def run(self, query: str) -> AgentState:
         """Run the compiled workflow with the given query."""
+        start_time = perf_counter()
         try:
             logger.debug("Starting agent workflow", extra={"query": query})
             initial_state: AgentState = {
@@ -347,3 +348,6 @@ class AgentWorkflow:
         except Exception as e:
             logger.exception("Agent workflow execution failed", extra={"query": query})
             raise
+        finally:
+            elapsed_s = perf_counter() - start_time
+            logger.info("Total inference latency: %.2f s", elapsed_s)
