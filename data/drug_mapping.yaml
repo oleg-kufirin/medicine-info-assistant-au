@@ -1,0 +1,102 @@
+# Drug metadata mapping (YAML)
+#
+# Keys can be:
+#   - Exact URL of a source page
+#   - Exact filename (e.g., a local PDF basename)
+#   - A substring that appears in URL, filename, or title
+# Values must contain:
+#   - drug_name: string
+#   - active_ingridients: list of strings
+#
+# Notes:
+# - Field name is intentionally spelled "active_ingridients" to match the code.
+# - First matching key is used in order of priority: exact URL, exact filename, then substring.
+
+"CP-2014-CMI-03399-1.pdf":
+  drug_name: "Jardiance"
+  active_ingridients: ["Empagliflozin"]
+
+"CP-2014-PI-01783-1.pdf":
+  drug_name: "Jardiance"
+  active_ingridients: ["Empagliflozin"]
+
+#####
+
+"CP-2016-CMI-01043-1.pdf":
+  drug_name: "Jardiamet"
+  active_ingridients: ["Empagliflozin", "Metformin hydrochloride"]
+
+"CP-2015-PI-02229-1.pdf":
+  drug_name: "Jardiamet"
+  active_ingridients: ["Empagliflozin", "Metformin hydrochloride"]
+
+#####
+
+"CP-2018-CMI-01336-1.pdf":
+  drug_name: "Glyxambi"
+  active_ingridients: ["Empagliflozin", "Linagliptin"]
+
+"CP-2017-PI-01012-1.pdf":
+  drug_name: "Glyxambi"
+  active_ingridients: ["Empagliflozin", "Linagliptin"]
+
+#####
+
+"CP-2020-CMI-01750-1.pdf":
+  drug_name: "Ozempic"
+  active_ingridients: ["Semaglutide"]
+
+"CP-2019-PI-01881-1.pdf":
+  drug_name: "Ozempic"
+  active_ingridients: ["Semaglutide"]
+
+#####
+
+"CP-2024-CMI-02192-1.pdf":
+  drug_name: "Wegovy"
+  active_ingridients: ["Semaglutide"]
+
+"CP-2022-PI-01930-1.pdf":
+  drug_name: "Wegovy"
+  active_ingridients: ["Semaglutide"]
+
+#####
+
+"CP-2019-CMI-01699-1.pdf":
+  drug_name: "Escitalopram Sandoz"
+  active_ingridients: ["Escitalopram oxalate"]
+
+"CP-2019-PI-01698-1.pdf":
+  drug_name: "Escitalopram Sandoz"
+  active_ingridients: ["Escitalopram oxalate"]
+
+#####
+
+"CP-2010-CMI-05608-3.pdf":
+  drug_name: "Lexapro"
+  active_ingridients: ["Escitalopram oxalate"]
+
+"CP-2010-PI-06883-3.pdf":
+  drug_name: "Lexapro"
+  active_ingridients: ["Escitalopram oxalate"]
+
+#####
+
+"CP-2015-CMI-01012-1.pdf":
+  drug_name: "Brintellix"
+  active_ingridients: ["Vortioxetine hydrobromide"]
+
+"CP-2014-PI-01635-1.pdf":
+  drug_name: "Brintellix"
+  active_ingridients: ["Vortioxetine hydrobromide"]
+
+#####
+
+"CP-2023-CMI-01248-1.pdf":
+  drug_name: "Zoloft"
+  active_ingridients: ["Sertraline hydrochloride"]
+
+"CP-2023-PI-02438-1.pdf":
+  drug_name: "Zoloft"
+  active_ingridients: ["Sertraline hydrochloride"]
+
