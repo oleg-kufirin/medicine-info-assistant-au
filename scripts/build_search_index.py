@@ -5,6 +5,7 @@
 - Chunks extracted text and writes 'data/index/docs.jsonl' (if missing).
 - Builds a FAISS index at 'data/index/faiss.index' from the chunked docs.
 - If 'docs.jsonl' already exists, reuses it and only rebuilds the index.
+- Supports optional external drug metadata mapping via DRUG_MAPPING_PATH.
 """
 
 import os, json, yaml, re, time, io
