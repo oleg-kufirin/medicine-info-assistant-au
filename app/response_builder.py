@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, List
+from typing import Dict, List, Any
 from retrieval_agent import Passage
 
 
@@ -22,7 +22,12 @@ def synthesize_answer(query: str, passages: List["Passage"], summary_text: str |
     for passage in passages:
         snippet = passage.text.strip().split("\n")[0][:800]
         if snippet:
-            bullets.append({"text": snippet, "score": float(passage.score)})
+            bullets.append({
+                "text": snippet,
+                "score": float(passage.score),
+                "drug_name": getattr(passage, "drug_name", None),
+                "active_ingridients": getattr(passage, "active_ingridients", None),
+            })
         citations.append({"url": passage.url or "", "section": passage.section or ""})
 
     return {
@@ -50,7 +55,12 @@ def synthesize_answer_serial(query: str, passages: List[Dict[str, object]], summ
                 score_value = float(score)
             except (TypeError, ValueError):
                 score_value = 0.0
-            bullets.append({"text": snippet, "score": score_value})
+            bullets.append({
+                "text": snippet,
+                "score": score_value,
+                "drug_name": passage.get("drug_name"),
+                "active_ingridients": passage.get("active_ingridients"),
+            })
         citations.append(
             {
                 "url": str(passage.get("url", "") or ""),

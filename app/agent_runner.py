@@ -1,8 +1,10 @@
 import logging
+
 from time import perf_counter
 from typing import Any, Dict, List, TypedDict
 from langgraph.graph import StateGraph, END
 from moderation_agent import ModerationAgent
+from drug_detection_agent import DrugDetectionAgent
 from reflection_agent import ReflectionAgent
 from retrieval_agent import Passage, RetrievalAgent
 from summary_writing_agent import SummaryWritingAgent
@@ -18,6 +20,8 @@ class AgentState(TypedDict, total=False):
     query: str
     # Updated by ModerationAgent
     safety_intent_decision: Dict[str, Any]
+    # Updated by DrugDetectionAgent
+    detected_drug_names: List[str]
     # Updated by RetrievalAgent
     passages: List[Passage] | List[Dict[str, Any]]
     # Updated by SummaryWritingAgent
@@ -39,6 +43,7 @@ class AgentWorkflow:
         Initialize the multi-agent workflow with moderation, retrieval, and summarization agents.
         """
         self.moderation = ModerationAgent() 
+        self.drug_detector = DrugDetectionAgent()
         self.retriever = RetrievalAgent()
         self.summary_writer = SummaryWritingAgent()
         self.reflection_reviewer = ReflectionAgent()
@@ -52,6 +57,7 @@ class AgentWorkflow:
 
         # Add nodes
         workflow.add_node("moderation", self._moderation_step)
+        workflow.add_node("drug_detection", self._drug_detection_step)
         workflow.add_node("retrieval", self._retrieval_step)
         workflow.add_node("summary_writing", self._summary_writing_step)
         workflow.add_node("reflection", self._reflection_step)
@@ -65,8 +71,16 @@ class AgentWorkflow:
             "moderation",
             self._decide_after_moderation,
             {
-                True: "retrieval",
+                True: "drug_detection",
                 False: END,
+            },
+        )
+        workflow.add_conditional_edges(
+            "drug_detection",
+            self._decide_after_drug_detection,
+            {
+                True: "retrieval",
+                False: "response_building",
             },
         )
         workflow.add_edge("retrieval", "summary_writing")
@@ -123,7 +137,36 @@ class AgentWorkflow:
         """Decide whether to proceed based on moderation results."""
         decision = state.get("safety_intent_decision", {})
         return bool(decision.get("allow", False))
-    
+
+
+    def _drug_detection_step(self, state: AgentState) -> AgentState:
+        """Perform drug detection on the query."""
+        start_time = perf_counter()
+        try:
+            query = state.get("query", "")
+            logger.debug("[START] Running drug detection step", extra={"query_preview": query[:80]})
+
+            extracted_drug_names = self.drug_detector.extract_drug_names(query)
+
+            validated_drug_names: List[str] = []
+            for name in extracted_drug_names:
+                if name.lower() in query.lower():
+                    validated_drug_names.append(name)
+
+            state["detected_drug_names"] = validated_drug_names
+
+            logger.debug("[END] Drug detection completed", extra={"detected_drug_names": validated_drug_names,},)
+            return state
+        finally:
+            elapsed_s = perf_counter() - start_time
+            logger.info("Step latency - Drug Detection: %.2f s", elapsed_s)
+
+
+    def _decide_after_drug_detection(self, state: AgentState) -> bool:
+        """Decide whether to proceed after drug detection."""
+        detected_drug_names = state.get("detected_drug_names", [])
+        return bool(detected_drug_names)
+
 
     def _serialize_passages(self, passages: List[Any]) -> List[Dict[str, Any]]:
         """Serialize Passage objects into dictionaries."""
@@ -145,8 +188,22 @@ class AgentWorkflow:
         start_time = perf_counter()
         try:
             query = state.get("query", "")
-            logger.debug("[START] Running retrieval step", extra={"query_preview": query[:80]})
-            passages = self.retriever.retrieve(query)
+            detected_names = state.get("detected_drug_names") or []
+            restrict = detected_names if isinstance(detected_names, list) and detected_names else None
+
+            logger.debug(
+                "[START] Running retrieval step",
+                extra={
+                    "query_preview": query[:80],
+                    "restrict_names": ", ".join(restrict) if restrict else "",
+                },
+            )
+
+            if restrict:
+                passages = self.retriever.retrieve(query, top_k=20, restrict_names=restrict)
+            else:
+                passages = self.retriever.retrieve(query)
+
             state["passages"] = passages
             logger.debug(
                 "[END] Retrieval completed",

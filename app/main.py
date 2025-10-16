@@ -185,13 +185,21 @@ with st.form(key="query_form"):
     )
     submitted = st.form_submit_button("Search CMI / PI")
 
+# When user submits, run and persist result so it survives reruns
 if submitted and query:
-    st.markdown("---")
-    st.subheader("Your query")
-    st.write(query)
-
     workflow = agent_runner.AgentWorkflow()
     result = workflow.run(query)
+    st.session_state.last_query = query
+    st.session_state.last_result = result
+
+# Display from last persisted result (or the just-computed one)
+result = st.session_state.get("last_result")
+active_query = st.session_state.get("last_query") or ""
+
+if result:
+    st.markdown("---")
+    st.subheader("Your query")
+    st.write(active_query)
 
     # Display safety and intent decision
     dec = result.get("safety_intent_decision") or {}
@@ -214,11 +222,19 @@ if submitted and query:
         safety_state = "OK" if safety_ok else "BLOCKED"
         intent_state = "OK" if intent_ok else "BLOCKED"
         st.info(
-            f"Safety: {safety_state} - {safety_label} | Intent: {intent_state} - {intent_label}"
+            f"Safety: {safety_state} - {safety_label.upper()} | Intent: {intent_state} - {intent_label.upper()}"
         )
         if not allow and dec.get("message"):
             st.warning(dec.get("message"))
             st.stop()
+
+    # Display detected drug/ingredient names
+    detected_names = result.get("detected_drug_names") or []
+    st.markdown("### Detected Drugs")
+    if detected_names:
+        st.info(", ".join(detected_names).upper())
+    else:
+        st.info("No explicit drug or ingredient names detected.")
 
     answer = result.get("answer") or {}
 
@@ -250,10 +266,33 @@ if submitted and query:
                 if isinstance(b, dict):
                     text = b.get("text", "")
                     score = b.get("score")
-                    score_suffix = ""
+                    drug_name = b.get("drug_name")
+                    ingredients = b.get("active_ingridients")
+
+                    # Build suffix details: similarity + optional drug and ingredients
+                    parts = []
                     if isinstance(score, (int, float)):
-                        score_suffix = f" (similarity: {score:.3f})"
-                    st.markdown(f"<li>{text}<br>{score_suffix}</li>", unsafe_allow_html=True)
+                        parts.append(f"Similarity: {float(score):.3f}")
+                    if drug_name:
+                        parts.append(f"Drug: {drug_name}")
+                    if ingredients:
+                        if isinstance(ingredients, list):
+                            ingredients_str = ", ".join(str(i) for i in ingredients if i)
+                        else:
+                            ingredients_str = str(ingredients)
+                        if ingredients_str:
+                            parts.append(f"Active ingredients: {ingredients_str}")
+                    suffix = f" ({'; '.join(parts)})" if parts else ""
+
+                    # Add inline style as a fallback to ensure grey color takes effect
+                    suffix_html = (
+                        f" <span class='muted-suffix' style='color:#6b7280'>{suffix}</span>"
+                        if suffix
+                        else ""
+                    )
+
+                    # Place suffix on its own line under the snippet
+                    st.markdown(f"<li>{text}<br>{suffix_html}</li>", unsafe_allow_html=True)
                 else:
                     st.markdown(f"<li>{b}</li>", unsafe_allow_html=True)
             st.markdown("</ul></div>", unsafe_allow_html=True)
