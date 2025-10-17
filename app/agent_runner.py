@@ -84,17 +84,18 @@ class AgentWorkflow:
             },
         )
         workflow.add_edge("retrieval", "summary_writing")
-        workflow.add_edge("summary_writing", "reflection")
-        workflow.add_conditional_edges(
-            "reflection",
-            self._decide_after_reflection,
-            {
-                "fetch_external": "wikipedia_lookup",
-                "skip_external": "summary_revision",
-            },
-        )
-        workflow.add_edge("wikipedia_lookup", "summary_revision")
-        workflow.add_edge("summary_revision", "response_building")
+        workflow.add_edge("summary_writing", "response_building")
+        # workflow.add_edge("summary_writing", "reflection") # For testing without reflection
+        # workflow.add_conditional_edges(
+        #     "reflection",
+        #     self._decide_after_reflection,
+        #     {
+        #         "fetch_external": "wikipedia_lookup",
+        #         "skip_external": "summary_revision",
+        #     },
+        # )
+        # workflow.add_edge("wikipedia_lookup", "summary_revision")
+        # workflow.add_edge("summary_revision", "response_building")
         workflow.add_edge("response_building", END)
         
         return workflow.compile()
@@ -408,3 +409,4 @@ class AgentWorkflow:
         finally:
             elapsed_s = perf_counter() - start_time
             logger.info("Total inference latency: %.2f s", elapsed_s)
+            print('-'*50)

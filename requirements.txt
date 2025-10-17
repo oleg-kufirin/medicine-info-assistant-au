@@ -2,6 +2,7 @@ streamlit==1.36.0
 langchain==0.2.10
 langchain-core==0.2.10
 langchain-groq>=0.1.5,<0.2
+langgraph>=0.1.0
 faiss-cpu==1.8.0.post1
 sentence-transformers==3.0.1
 pdfminer.six==20231228

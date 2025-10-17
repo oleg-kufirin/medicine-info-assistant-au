@@ -3,6 +3,7 @@ from pathlib import Path
 import logging
 import streamlit as st
 import agent_runner
+import summary_writing_agent as swa
 
 BASE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = BASE_DIR / "assets"
@@ -15,6 +16,7 @@ SAMPLE_QUESTIONS_PATH = DATA_DIR / "sample_questions.txt"
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger(agent_runner.__name__).setLevel(logging.DEBUG)
+logging.getLogger(swa.__name__).setLevel(logging.INFO)
 
 st.set_page_config(
     page_title="Patient Information Assistant (CMI/PI) - MVP",

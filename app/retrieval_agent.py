@@ -74,6 +74,11 @@ class RetrievalAgent:
         dists = distances[0].tolist()
 
         passages: List[Passage] = []
+        
+        # Safe per-passage character limit (env MAX_PASSAGE_CHARS, 0 disables)
+        max_chars_env = int(os.getenv("MAX_PASSAGE_CHARS", "0"))
+        max_chars = max(0, max_chars_env)
+
         for idx, score in zip(idxs, dists):
             if idx == -1:
                 continue
@@ -107,9 +112,13 @@ class RetrievalAgent:
                 if not match:
                     continue
 
+            # Trim text to avoid excessively large prompts downstream
+            full_text = doc.get("text", "") or ""
+            text = full_text if max_chars == 0 else full_text[:max_chars]
+
             passages.append(
                 Passage(
-                    text=doc.get("text", "")[:4000],
+                    text=text,
                     url=to_web_url(doc.get("source_url")),
                     section=doc.get("section"),
                     score=float(score),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import logging
 
 from typing import Any, Dict, List, Sequence
 from dotenv import load_dotenv
@@ -15,10 +16,10 @@ except Exception:  # pragma: no cover - optional dependency
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 class SummaryWritingAgent:
     """Agent for summarizing text passages using a language model."""
-
-    PASSAGE_SNIPPET_LIMIT = 800
 
     def __init__(self) -> None:
         self._chain: Any = None
@@ -28,6 +29,17 @@ class SummaryWritingAgent:
     def _format_passages_for_summary(passages: Sequence[Any]) -> str:
         """Format passages into a single string for the summarization prompt."""
         chunks: List[str] = []
+
+        # Per-passage snippet cap (normalized chars) used when formatting LLM context
+        # Large values risk exceeding model limits; set to 0 to disable
+        per_snippet_limit = int(os.getenv("SUMMARY_PASSAGE_SNIPPET_LIMIT", "4000"))
+        context_budget = int(os.getenv("SUMMARY_MAX_CONTEXT_CHARS", "20000"))
+
+
+        if context_budget == 0:
+            context_budget = 1_000_000_000  # effectively unlimited
+        header_overhead = 64  # rough allowance per chunk for labels/meta
+
         for idx, passage in enumerate(passages, start=1):
             text = getattr(passage, "text", "") or ""
             snippet = str(text).strip()
@@ -35,7 +47,15 @@ class SummaryWritingAgent:
                 continue
 
             snippet = " ".join(snippet.split())
-            snippet = snippet[: SummaryWritingAgent.PASSAGE_SNIPPET_LIMIT]
+
+            # Enforce per-snippet and total-context limits
+            current_len = sum(len(c) for c in chunks)
+            remaining = context_budget - current_len - header_overhead
+            if remaining <= 0:
+                break
+            per_limit = remaining if per_snippet_limit == 0 else per_snippet_limit
+            allowed = min(per_limit, max(0, remaining))
+            snippet = snippet[:allowed]
 
             meta: List[str] = []
             section = getattr(passage, "section", None)
@@ -48,7 +68,9 @@ class SummaryWritingAgent:
 
             meta_suffix = f" ({'; '.join(meta)})" if meta else ""
             chunks.append(f"Passage {idx}{meta_suffix}:\n{snippet}")
-        return "\n\n".join(chunks)
+
+        result = "\n\n".join(chunks)
+        return result
 
     def _get_summary_chain(self):
         """Get or create the summarization chain."""
@@ -82,8 +104,7 @@ class SummaryWritingAgent:
             ]
         )
 
-        parser = StrOutputParser()
-        self._chain = prompt | llm | parser
+        self._chain = prompt | llm
         return self._chain
 
     def _get_rewrite_chain(self):
@@ -138,9 +159,20 @@ class SummaryWritingAgent:
             return None
 
         try:
-            summary = chain.invoke({"query": query, "context": context})
+            res = chain.invoke({"query": query, "context": context})
         except Exception:
+            logger.warning("Summarization failed; returning None", exc_info=True)
             return None
+
+        # Log token usage if available
+        meta = getattr(res, "response_metadata", {}) or {}
+        usage = meta.get("token_usage") or meta.get("usage") or {}
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
+        logger.info(f"Number of tokens used: prompt - {prompt_tokens}, completion - {completion_tokens}")
+
+        # Extract summary text
+        summary = StrOutputParser().invoke(res)
 
         if isinstance(summary, str):
             summary_text = summary.strip()
