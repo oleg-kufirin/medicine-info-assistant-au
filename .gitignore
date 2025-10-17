@@ -1,2 +1,4 @@
 # Python bytecode and cache
 __pycache__/
+data/index/docs.jsonl
+data/index/faiss.index

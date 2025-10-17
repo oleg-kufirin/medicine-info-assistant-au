@@ -29,6 +29,7 @@ class SummaryWritingAgent:
     def _format_passages_for_summary(passages: Sequence[Any]) -> str:
         """Format passages into a single string for the summarization prompt."""
         chunks: List[str] = []
+        passage_scores: List[float] = []
 
         # Per-passage snippet cap (normalized chars) used when formatting LLM context
         # Large values risk exceeding model limits; set to 0 to disable
@@ -41,6 +42,10 @@ class SummaryWritingAgent:
         header_overhead = 64  # rough allowance per chunk for labels/meta
 
         for idx, passage in enumerate(passages, start=1):
+            # Capture passage score when available (object or dict)
+            raw_score = passage.get("score") if isinstance(passage, dict) else getattr(passage, "score", None)
+            passage_scores.append(float(raw_score))
+
             text = getattr(passage, "text", "") or ""
             snippet = str(text).strip()
             if not snippet:
@@ -70,6 +75,9 @@ class SummaryWritingAgent:
             chunks.append(f"Passage {idx}{meta_suffix}:\n{snippet}")
 
         result = "\n\n".join(chunks)
+        # Log all passage scores for visibility
+        logger.info("Summary passages scores: %s", ", ".join(f"{s:.4f}" for s in passage_scores))
+
         return result
 
     def _get_summary_chain(self):

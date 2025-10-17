@@ -198,7 +198,7 @@ def extract_html_text(html: str) -> str:
     return text
 
 
-def chunk_text(text: str, chunk_size: int = 1800, overlap: int = 200) -> List[str]:
+def chunk_text(text: str, chunk_size: int = 250, overlap: int = 50) -> List[str]:
     """Split text into overlapping word-based chunks.
 
     Args:
@@ -353,6 +353,7 @@ def build_embeddings_index():
 
     # Build embeddings + FAISS
     texts = [d["text"] for d in docs]
+    print(f"[INFO] Generating embeddings for {len(texts)} texts using model '{EMBED_MODEL_NAME}'...")
     embs = MODEL.encode(texts, convert_to_numpy=True, normalize_embeddings=True).astype("float32")
     index = faiss.IndexFlatIP(embs.shape[1])
     index.add(embs)
