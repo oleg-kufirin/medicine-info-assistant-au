@@ -1,7 +1,7 @@
 import logging
 
 from time import perf_counter
-from typing import Any, Dict, List, TypedDict
+from typing import Any, Dict, List, TypedDict, Callable, Optional
 from langgraph.graph import StateGraph, END
 from moderation_agent import ModerationAgent
 from drug_detection_agent import DrugDetectionAgent
@@ -40,10 +40,11 @@ class AgentState(TypedDict, total=False):
 
 
 class AgentWorkflow:
-    def __init__(self) -> None:
+    def __init__(self, on_event: Optional[Callable[[str, str, str | None], None]] = None) -> None:
         """
         Initialize the multi-agent workflow with moderation, retrieval, and summarization agents.
         """
+        self.on_event = on_event
         self.moderation = ModerationAgent() 
         self.drug_detector = DrugDetectionAgent()
         self.retriever = RetrievalAgent()
@@ -51,6 +52,24 @@ class AgentWorkflow:
         self.reflection_reviewer = ReflectionAgent()
         # self.wikipedia_tool = WikipediaLookupTool()
         self.compiled_workflow = self.build_workflow()
+
+
+    def _ui(self, step: str, phase: str, label: str | None = None) -> None:
+        """Safely emit UI events if a callback is provided.
+
+        step: machine step name, e.g. 'retrieval'
+        phase: 'start' | 'end'
+        label: optional human-friendly label
+        """
+        cb = self.on_event
+        if not cb:
+            return
+        try:
+            cb(step, phase, label)
+        except Exception:
+            # Never let UI wiring break the agent
+            logger.debug("UI callback failed for step=%s phase=%s", step, phase)
+
 
     def build_workflow(self) -> Any:
         """Create and compile the multi-agent workflow."""
@@ -107,6 +126,7 @@ class AgentWorkflow:
         """Perform moderation on the query."""
         start_time = perf_counter()
         try:
+            self._ui("moderation", "start", "Checking safety and intent…")
             query = state.get("query", "")
             logger.debug("[START] Running moderation step", extra={"query_preview": query[:80]})
             decision = self.moderation.classify_safety_and_intent(query)
@@ -134,6 +154,7 @@ class AgentWorkflow:
         finally:
             elapsed_s = perf_counter() - start_time
             logger.info("Step latency - Moderation: %.2f s", elapsed_s)
+            self._ui("moderation", "end")
 
 
     def _decide_after_moderation(self, state: AgentState) -> bool:
@@ -146,6 +167,7 @@ class AgentWorkflow:
         """Perform drug detection on the query."""
         start_time = perf_counter()
         try:
+            self._ui("drug_detection", "start", "Detecting drug names in query…")
             query = state.get("query", "")
             logger.debug("[START] Running drug detection step", extra={"query_preview": query[:80]})
 
@@ -163,6 +185,7 @@ class AgentWorkflow:
         finally:
             elapsed_s = perf_counter() - start_time
             logger.info("Step latency - Drug Detection: %.2f s", elapsed_s)
+            self._ui("drug_detection", "end")
 
 
     def _decide_after_drug_detection(self, state: AgentState) -> bool:
@@ -190,6 +213,7 @@ class AgentWorkflow:
         """Retrieve relevant passages based on the query."""
         start_time = perf_counter()
         try:
+            self._ui("retrieval", "start", "Retrieving relevant passages…")
             query = state.get("query", "")
             detected_names = state.get("detected_drug_names") or []
             restrict = detected_names if isinstance(detected_names, list) and detected_names else None
@@ -219,12 +243,14 @@ class AgentWorkflow:
         finally:
             elapsed_s = perf_counter() - start_time
             logger.info("Step latency - Retrieval: %.2f s", elapsed_s)
+            self._ui("retrieval", "end")
 
 
     def _summary_writing_step(self, state: AgentState) -> AgentState:
         """Summarize the retrieved passages and synthesize an answer."""
         start_time = perf_counter()
         try:
+            self._ui("summary_writing", "start", "Writing and refining summary…")
             query = state.get("query", "")
             passages = state.get("passages", [])
 
@@ -253,6 +279,7 @@ class AgentWorkflow:
         finally:
             elapsed_s = perf_counter() - start_time
             logger.info("Step latency - Summary Writing: %.2f s", elapsed_s)
+            self._ui("summary_writing", "end")
 
 
     def _reflection_step(self, state: AgentState) -> AgentState:
@@ -369,6 +396,7 @@ class AgentWorkflow:
         """Build the final answer response."""
         start_time = perf_counter()
         try:
+            self._ui("response_building", "start", "Assembling final answer…")
             query = state.get("query", "")
             passages = state.get("passages", [])
             summary_text = state.get("summary_draft")
@@ -386,6 +414,7 @@ class AgentWorkflow:
         finally:
             elapsed_s = perf_counter() - start_time
             logger.info("Step latency - Response Builder: %.2f s", elapsed_s)
+            self._ui("response_building", "end")
 
 
     def run(self, query: str) -> AgentState:
@@ -393,6 +422,7 @@ class AgentWorkflow:
         start_time = perf_counter()
         try:
             logger.debug("Starting agent workflow", extra={"query": query})
+            self._ui("workflow", "start", "Starting analysis…")
             initial_state: AgentState = {
                 "query": query,
                 "safety_intent_decision": {},
@@ -414,3 +444,4 @@ class AgentWorkflow:
             elapsed_s = perf_counter() - start_time
             logger.info("Total inference latency: %.2f s", elapsed_s)
             print('-'*50)
+            self._ui("workflow", "end", "Analysis complete")

@@ -189,13 +189,41 @@ with st.form(key="query_form"):
 
 # When user submits, run and persist result so it survives reruns
 if submitted and query:
-    workflow = agent_runner.AgentWorkflow()
+    # Live status + progress while the agent runs
+    steps = [
+        "moderation",
+        "drug_detection",
+        "retrieval",
+        "summary_writing",
+        "response_building",
+    ]
+    step_index = {name: i for i, name in enumerate(steps)}
+
+    status = st.status("Preparing…", expanded=True)
+    pbar = st.progress(0.0, text="Starting…")
+
+    def on_event(step: str, phase: str, label: str | None = None) -> None:
+        # Update status panel and progress bar from agent callbacks
+        if phase == "start":
+            status.update(label=label or f"Running {step.replace('_', ' ')}…", state="running")
+        else:
+            idx = step_index.get(step, 0)
+            frac = min(1.0, (idx + 1) / max(1, len(steps)))
+            pbar.progress(frac, text=f"Completed {step.replace('_', ' ')}")
+
+    workflow = agent_runner.AgentWorkflow(on_event=on_event)
+
     # Run the workflow and handle exceptions
     try:
-        result = workflow.run(query)
+        with status:
+            result = workflow.run(query)
+        status.update(label="Complete", state="complete")
     except Exception:
+        status.update(label="Failed", state="error")
         st.error("An unexpected error occurred while generating the answer. Please try again.")
         st.stop()
+    finally:
+        pbar.empty()
 
     st.session_state.last_query = query
     st.session_state.last_result = result
@@ -205,7 +233,7 @@ result = st.session_state.get("last_result")
 active_query = st.session_state.get("last_query") or ""
 
 if result:
-    st.markdown("---")
+    # st.markdown("---")
     st.subheader("Your query")
     st.write(active_query)
 
