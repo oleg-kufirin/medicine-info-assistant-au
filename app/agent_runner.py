@@ -35,6 +35,8 @@ class AgentState(TypedDict, total=False):
     wikipedia_context: List[Dict[str, Any]]
     # Updated by ResponseBuilder
     answer: Dict[str, Any]
+    # Error info from SummaryWritingAgent
+    summary_error: Dict[str, Any] | None
 
 
 class AgentWorkflow:
@@ -239,6 +241,8 @@ class AgentWorkflow:
             state["needs_external_context"] = False
             state["wikipedia_queries"] = []
             state["wikipedia_context"] = []
+            # Propagate any summarization error details for UI display
+            state["summary_error"] = self.summary_writer.get_last_error()
 
             logger.debug(
                 "[END] Summary writing completed",

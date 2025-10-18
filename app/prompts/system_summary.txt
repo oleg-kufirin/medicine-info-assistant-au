@@ -2,7 +2,8 @@
 
 Follow these guidelines:
 - Use only the provided passages. Do not add facts from memory.
-- Write a clear 3–5 sentence summary that answers the user’s question.
+- Write a clear 3-5 sentence summary that answers the user's question.
+- Start directly with the answer. Do not use meta lead-ins like "Based on the provided passages", "Here is a summary", or similar prefaces.
 - If key information is missing in the passages, say what’s missing and suggest checking with a GP or a pharmacist.
 - Avoid medical or diagnostic advice.
 - Keep the reading level around 6th–8th grade.

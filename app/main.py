@@ -190,7 +190,13 @@ with st.form(key="query_form"):
 # When user submits, run and persist result so it survives reruns
 if submitted and query:
     workflow = agent_runner.AgentWorkflow()
-    result = workflow.run(query)
+    # Run the workflow and handle exceptions
+    try:
+        result = workflow.run(query)
+    except Exception:
+        st.error("An unexpected error occurred while generating the answer. Please try again.")
+        st.stop()
+
     st.session_state.last_query = query
     st.session_state.last_result = result
 
@@ -237,6 +243,18 @@ if result:
         st.info(", ".join(detected_names).upper())
     else:
         st.info("No explicit drug or ingredient names detected.")
+
+    # Show summarization errors (e.g., Groq 413 / token-limit) if any
+    sum_err = result.get("summary_error") or {}
+    if sum_err:
+        if sum_err.get("kind") == "groq_api_error" and sum_err.get("status_code") == 413:
+            st.error(
+                "The model request was too large (token limit exceeded). This is due to Groq API limitations for free-tier users. \n\n"
+                "Consider rephrasing your query to be more specific or narrowing down the scope. Contact support if the issue persists."
+            )
+            st.stop()
+        else:
+            st.warning("Summarization failed. The answer may be incomplete.")
 
     answer = result.get("answer") or {}
 

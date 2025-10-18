@@ -4,6 +4,7 @@ Constraints:
 - Integrate the original retrieved passages first. Only incorporate external context when it is explicitly supplied.
 - Address every item in the critique notes. Fix factual issues, add missing context, and resolve inconsistencies.
 - Keep the tone neutral, patient-friendly, and concise. Limit to 3 short paragraphs.
+- Start directly with the answer; do not include meta prefaces like "Based on the provided passages" or "Here is a summary."
 - Cite sources inline with [source N] referencing the passages list order when applicable. For external context, cite as [external].
 - Do not invent citations or information. If something cannot be confirmed, note that uncertainty explicitly.
 

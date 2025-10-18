@@ -24,6 +24,11 @@ class SummaryWritingAgent:
     def __init__(self) -> None:
         self._chain: Any = None
         self._rewrite_chain: Any = None
+        self._last_error: Dict[str, Any] | None = None
+
+    def get_last_error(self) -> Dict[str, Any] | None:
+        """Return the last error encountered during summarization/rewrite."""
+        return self._last_error
 
     @staticmethod
     def _format_passages_for_summary(passages: Sequence[Any]) -> str:
@@ -155,6 +160,9 @@ class SummaryWritingAgent:
 
     def summarize_passages(self, query: str, passages: Sequence[Any]) -> str | None:
         """Summarize the given passages in the context of the query."""
+        # Reset last error on each call
+        self._last_error = None
+
         if not passages:
             return None
 
@@ -166,10 +174,20 @@ class SummaryWritingAgent:
         if not context:
             return None
 
+        # Invoke the chain and handle exceptions
         try:
             res = chain.invoke({"query": query, "context": context})
-        except Exception:
-            logger.warning("Summarization failed; returning None", exc_info=True)
+        except Exception as e:
+            # Capture and log the error
+            err_msg = str(e)
+            error_payload: Dict[str, Any] = {"kind": "unknown", "message": err_msg}
+            # Check for Groq API-specific errors
+            import groq
+            if isinstance(e, groq.APIStatusError):
+                status = getattr(e, "status_code", None)
+                error_payload = {"kind": "groq_api_error", "status_code": status, "message": err_msg, }
+            logger.warning("Summarization failed: %s; returning None", err_msg)
+            self._last_error = error_payload
             return None
 
         # Log token usage if available
