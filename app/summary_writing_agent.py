@@ -117,7 +117,8 @@ class SummaryWritingAgent:
             ]
         )
 
-        self._chain = prompt | llm
+        parser = StrOutputParser()
+        self._chain = prompt | llm | parser
         return self._chain
 
     def _get_rewrite_chain(self):
@@ -176,7 +177,7 @@ class SummaryWritingAgent:
 
         # Invoke the chain and handle exceptions
         try:
-            res = chain.invoke({"query": query, "context": context})
+            result = chain.invoke({"query": query, "context": context})
         except Exception as e:
             # Capture and log the error
             err_msg = str(e)
@@ -190,20 +191,10 @@ class SummaryWritingAgent:
             self._last_error = error_payload
             return None
 
-        # Log token usage if available
-        meta = getattr(res, "response_metadata", {}) or {}
-        usage = meta.get("token_usage") or meta.get("usage") or {}
-        prompt_tokens = usage.get("prompt_tokens")
-        completion_tokens = usage.get("completion_tokens")
-        logger.info(f"Number of tokens used: prompt - {prompt_tokens}, completion - {completion_tokens}")
-
-        # Extract summary text
-        summary = StrOutputParser().invoke(res)
-
-        if isinstance(summary, str):
-            summary_text = summary.strip()
+        if isinstance(result, str):
+            summary_text = result.strip()
         else:
-            summary_text = getattr(summary, "content", "").strip()
+            summary_text = getattr(result, "content", "").strip()
         return summary_text or None
 
     @staticmethod
@@ -222,8 +213,6 @@ class SummaryWritingAgent:
             parts.append("\nRevision Instructions:")
             parts.append(instructions)
 
-        needs_context = critique.get("needs_additional_context", False)
-        parts.append(f"\nNeeds Additional Context: {bool(needs_context)}")
         return "\n".join(part for part in parts if part.strip()) or "No critique provided."
 
     @staticmethod
@@ -241,7 +230,7 @@ class SummaryWritingAgent:
                 details.append(f"Search query: {query}")
             if url:
                 details.append(f"URL: {url}")
-            header = title or query or "Wikipedia Entry"
+            header = title or query or "External Context"
             meta = f" ({'; '.join(details)})" if details else ""
             body = summary if summary else "No summary available."
             sections.append(f"{header}{meta}\n{body}")

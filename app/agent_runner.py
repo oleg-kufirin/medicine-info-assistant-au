@@ -29,10 +29,6 @@ class AgentState(TypedDict, total=False):
     summary_draft: str | None
     # Updated by ReflectionAgent
     summary_critique: Dict[str, Any] | None
-    needs_external_context: bool
-    wikipedia_queries: List[str]
-    # Updated by WikipediaLookupTool
-    wikipedia_context: List[Dict[str, Any]]
     # Updated by ResponseBuilder
     answer: Dict[str, Any]
     # Error info from SummaryWritingAgent
@@ -82,7 +78,6 @@ class AgentWorkflow:
         workflow.add_node("retrieval", self._retrieval_step)
         workflow.add_node("summary_writing", self._summary_writing_step)
         workflow.add_node("reflection", self._reflection_step)
-        workflow.add_node("wikipedia_lookup", self._wikipedia_lookup_step)
         workflow.add_node("summary_revision", self._summary_revision_step)
         workflow.add_node("response_building", self._response_building_step)
 
@@ -105,18 +100,10 @@ class AgentWorkflow:
             },
         )
         workflow.add_edge("retrieval", "summary_writing")
-        workflow.add_edge("summary_writing", "response_building")
-        # workflow.add_edge("summary_writing", "reflection") # For testing without reflection
-        # workflow.add_conditional_edges(
-        #     "reflection",
-        #     self._decide_after_reflection,
-        #     {
-        #         "fetch_external": "wikipedia_lookup",
-        #         "skip_external": "summary_revision",
-        #     },
-        # )
-        # workflow.add_edge("wikipedia_lookup", "summary_revision")
-        # workflow.add_edge("summary_revision", "response_building")
+        # workflow.add_edge("summary_writing", "response_building") # For testing without reflection
+        workflow.add_edge("summary_writing", "reflection")
+        workflow.add_edge("reflection", "summary_revision")
+        workflow.add_edge("summary_revision", "response_building")
         workflow.add_edge("response_building", END)
         
         return workflow.compile()
@@ -153,7 +140,7 @@ class AgentWorkflow:
             return state
         finally:
             elapsed_s = perf_counter() - start_time
-            logger.info("Step latency - Moderation: %.2f s", elapsed_s)
+            logger.info("Step latency - Moderation: %.2f s \n", elapsed_s)
             self._ui("moderation", "end")
 
 
@@ -184,7 +171,7 @@ class AgentWorkflow:
             return state
         finally:
             elapsed_s = perf_counter() - start_time
-            logger.info("Step latency - Drug Detection: %.2f s", elapsed_s)
+            logger.info("Step latency - Drug Detection: %.2f s \n", elapsed_s)
             self._ui("drug_detection", "end")
 
 
@@ -242,7 +229,7 @@ class AgentWorkflow:
             return state
         finally:
             elapsed_s = perf_counter() - start_time
-            logger.info("Step latency - Retrieval: %.2f s", elapsed_s)
+            logger.info("Step latency - Retrieval: %.2f s \n", elapsed_s)
             self._ui("retrieval", "end")
 
 
@@ -264,9 +251,6 @@ class AgentWorkflow:
             state["summary_initial"] = summary_text
             state["summary_draft"] = summary_text
             state["summary_critique"] = None
-            state["needs_external_context"] = False
-            state["wikipedia_queries"] = []
-            state["wikipedia_context"] = []
             # Propagate any summarization error details for UI display
             state["summary_error"] = self.summary_writer.get_last_error()
 
@@ -278,7 +262,7 @@ class AgentWorkflow:
             return state
         finally:
             elapsed_s = perf_counter() - start_time
-            logger.info("Step latency - Summary Writing: %.2f s", elapsed_s)
+            logger.info("Step latency - Summary Writing: %.2f s \n", elapsed_s)
             self._ui("summary_writing", "end")
 
 
@@ -286,6 +270,7 @@ class AgentWorkflow:
         """Critique the summary draft and recommend follow-up actions."""
         start_time = perf_counter()
         try:
+            self._ui("reflection_writing", "start", "Reviewing summary for completeness…")
             query = state.get("query", "")
             passages = state.get("passages", [])
             summary_text = state.get("summary_draft")
@@ -300,60 +285,20 @@ class AgentWorkflow:
             )
 
             critique = self.reflection_reviewer.review_summary(query, passages, summary_text)
-            needs_context = bool(critique.get("needs_additional_context"))
-            wiki_queries = critique.get("wikipedia_queries") or []
-
             state["summary_critique"] = critique
-            state["needs_external_context"] = needs_context and bool(wiki_queries)
-            state["wikipedia_queries"] = wiki_queries
 
             logger.debug(
                 "[END] Reflection review completed",
                 extra={
-                    "needs_external_context": state["needs_external_context"],
-                    "wikipedia_query_count": len(wiki_queries),
+                    "critique_keys": list(critique.keys()) if isinstance(critique, dict) else [],
                 },
             )
             return state
         finally:
             elapsed_s = perf_counter() - start_time
-            logger.info("Step latency - Reflection: %.2f s", elapsed_s)
-            logger.info("Critique notes: \n %s", critique)
-            logger.info("Needs additional context: %s", needs_context)
-            if wiki_queries:
-                logger.info("Wikipedia queries recommended: %s", wiki_queries)
-            
-
-    def _decide_after_reflection(self, state: AgentState) -> str:
-        """Determine whether to perform an external Wikipedia lookup."""
-        # needs_context = bool(state.get("needs_external_context"))
-        # if needs_context:
-        #     return "fetch_external"
-        return "skip_external"
-
-
-    def _wikipedia_lookup_step(self, state: AgentState) -> AgentState:
-        """Fetch supplemental context from Wikipedia when required."""
-        queries = state.get("wikipedia_queries", []) or []
-        logger.debug(
-            "[START] Running Wikipedia lookup step",
-            extra={"query_count": len(queries)},
-        )
-        results = self.wikipedia_tool.batch_lookup(queries)
-        state["wikipedia_context"] = [
-            {
-                "query": result.query,
-                "title": result.title,
-                "summary": result.summary,
-                "url": result.url,
-            }
-            for result in results
-        ]
-        logger.debug(
-            "[END] Wikipedia lookup completed",
-            extra={"results_found": len(state["wikipedia_context"])},
-        )
-        return state
+            logger.info("Step latency - Reflection: %.2f s \n" , elapsed_s)
+            logger.info("Critique notes: \n %s \n", critique)
+            self._ui("reflection_writing", "end")
 
 
     def _summary_revision_step(self, state: AgentState) -> AgentState:
@@ -364,14 +309,12 @@ class AgentWorkflow:
             passages = state.get("passages", [])
             draft = state.get("summary_draft")
             critique = state.get("summary_critique")
-            external_context = state.get("wikipedia_context", [])
             logger.debug(
                 "[START] Running summary revision step",
                 extra={
                     "query_preview": query[:80],
                     "has_draft": bool(draft),
                     "critique_present": bool(critique),
-                    "external_context_count": len(external_context),
                 },
             )
             revised = self.summary_writer.rewrite_summary(
@@ -379,7 +322,6 @@ class AgentWorkflow:
                 passages,
                 draft,
                 critique,
-                external_context,
             )
             if revised:
                 state["summary_draft"] = revised
@@ -389,7 +331,7 @@ class AgentWorkflow:
             return state
         finally:
             elapsed_s = perf_counter() - start_time
-            logger.info("Step latency - Summary Revision: %.2f s", elapsed_s)
+            logger.info("Step latency - Summary Revision: %.2f s \n", elapsed_s)
 
 
     def _response_building_step(self, state: AgentState) -> AgentState:
@@ -413,7 +355,7 @@ class AgentWorkflow:
             return state
         finally:
             elapsed_s = perf_counter() - start_time
-            logger.info("Step latency - Response Builder: %.2f s", elapsed_s)
+            logger.info("Step latency - Response Builder: %.2f s \n", elapsed_s)
             self._ui("response_building", "end")
 
 
@@ -421,7 +363,7 @@ class AgentWorkflow:
         """Run the compiled workflow with the given query."""
         start_time = perf_counter()
         try:
-            logger.debug("Starting agent workflow", extra={"query": query})
+            logger.debug("Starting agent workflow \n", extra={"query": query})
             self._ui("workflow", "start", "Starting analysis…")
             initial_state: AgentState = {
                 "query": query,
@@ -430,9 +372,6 @@ class AgentWorkflow:
                 "summary_initial": None,
                 "summary_draft": None,
                 "summary_critique": None,
-                "needs_external_context": False,
-                "wikipedia_queries": [],
-                "wikipedia_context": [],
                 "answer": {},
             }
             final_state = self.compiled_workflow.invoke(initial_state)

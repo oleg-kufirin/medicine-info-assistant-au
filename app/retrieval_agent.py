@@ -25,7 +25,7 @@ class Passage:
 class RetrievalAgent:
     """Agent for retrieving relevant passages from a FAISS index based on a query."""
 
-    def __init__(self, index_dir: str = "data/index", min_similarity: float = 0.4, min_passages: int = 3, max_passages: int = 10) -> None:
+    def __init__(self, index_dir: str = "data/index", min_similarity: float = 0.4, min_passages: int = 3, max_passages: int = 7) -> None:
         self.index_dir = index_dir
         self.docs_path = os.path.join(index_dir, "docs.jsonl")
         self.index_path = os.path.join(index_dir, "faiss.index")

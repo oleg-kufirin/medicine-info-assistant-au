@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import logging
 
 from typing import Any, Dict, List, Sequence
 from dotenv import load_dotenv
@@ -12,19 +13,13 @@ from langchain_core.prompts import ChatPromptTemplate
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
 
+# Define the structured output model for reflection
 class ReflectionPayload(BaseModel):
     revision_instructions: str = Field(
         default="", 
         description="Guidance for improving the summary."
-    )
-    needs_additional_context: bool = Field(
-        default=False,
-        description="True when additional external context is required.",
-    )
-    wikipedia_queries: List[str] = Field(
-        default_factory=list,
-        description="Wikipedia search queries for missing context.",
     )
     issues: List[str] = Field(
         default_factory=list,
@@ -39,6 +34,12 @@ class ReflectionAgent:
 
     def __init__(self) -> None:
         self._chain: Any = None
+        self._last_error: Dict[str, Any] | None = None
+
+
+    def get_last_error(self) -> Dict[str, Any] | None:
+        """Return the last error encountered during reflection, if any."""
+        return self._last_error
 
 
     @staticmethod
@@ -82,7 +83,7 @@ class ReflectionAgent:
 
         model = os.getenv("REFLECTION_MODEL", os.getenv("SUMMARY_MODEL", "llama-3.1-8b-instant"))
         llm = ChatGroq(groq_api_key=api_key, model_name=model, temperature=0.2)
-        structured_llm = llm.with_structured_output(ReflectionPayload)
+        structured_llm = llm.with_structured_output(ReflectionPayload, method="json_mode")
 
         system_prompt = load_prompt("system_reflection_v2")
         if not system_prompt:
@@ -127,20 +128,21 @@ class ReflectionAgent:
 
         # Run the reflection chain
         try:
-            payload: ReflectionPayload = chain.invoke({"query": query, "context": context, "summary": summary_text})
-        except Exception:
+            result = chain.invoke({"query": query, "context": context, "summary": summary_text})
+        except Exception as e:
+            # Capture and log the error
+            err_msg = str(e)
+            error_payload: Dict[str, Any] = {"kind": "unknown", "message": err_msg}
+            # Check for Groq API-specific errors
+            import groq
+            if isinstance(e, groq.APIStatusError):
+                status = getattr(e, "status_code", None)
+                error_payload = {"kind": "groq_api_error", "status_code": status, "message": err_msg, }
+            logger.warning("Summarization failed: %s; returning None", err_msg)
+            self._last_error = error_payload
             return self._default_response()
+            
+         # Extract parsed payload and validate the output
+        reflection = result.model_dump()
 
-        # Validate the output
-        result = payload.model_dump()
-
-        # Ensure at least one Wikipedia query if additional context is needed
-        # That guard is a safety net for empty retrieval results 
-        # When passages is falsy (no RAG hits), the reviewer should always ask for external info
-        if not passages:
-            result["needs_additional_context"] = True
-            if not result.get("wikipedia_queries"):
-                fallback_query = query.strip()
-                result["wikipedia_queries"] = [fallback_query]
-
-        return result
+        return reflection or self._default_response()
