@@ -29,6 +29,33 @@ class DrugDetectionAgent:
     def __init__(self) -> None:
         self._chain: Any = None
 
+
+    def extract_drug_names(self, query: str) -> List[str]:
+        """Extract a list of explicit drug/ingredient names from the query. Returns [] on failure."""
+        q = (query or "").strip()
+        if not q:
+            return []
+
+        chain = self._get_chain()
+        if chain is None:
+            return []
+
+        try:
+            result: DrugDetectionResult = chain.invoke({"query": q})
+        except Exception:
+            return []
+
+        names = list(result.names or [])
+        return self._clean_names(names)
+
+
+    # Backwards-compatible helper: return the first name or empty string
+    def extract_drug_name(self, query: str) -> str:
+        """Extract the first explicit drug/ingredient name from the query, or return an empty string."""
+        names = self.extract_drug_names(query)
+        return names[0] if names else ""
+
+
     def _get_chain(self):
         """Create (or reuse) the extraction chain that returns structured output."""
         if self._chain is not None:
@@ -56,6 +83,7 @@ class DrugDetectionAgent:
         self._chain = prompt | structured_llm
         return self._chain
 
+
     @staticmethod
     def _clean_names(items: List[str]) -> List[str]:
         """Clean and deduplicate extracted names. Returns [] on failure or no valid names."""
@@ -77,27 +105,3 @@ class DrugDetectionAgent:
             seen.add(key)
             cleaned.append(name)
         return cleaned
-
-    def extract_drug_names(self, query: str) -> List[str]:
-        """Extract a list of explicit drug/ingredient names from the query. Returns [] on failure."""
-        q = (query or "").strip()
-        if not q:
-            return []
-
-        chain = self._get_chain()
-        if chain is None:
-            return []
-
-        try:
-            result: DrugDetectionResult = chain.invoke({"query": q})
-        except Exception:
-            return []
-
-        names = list(result.names or [])
-        return self._clean_names(names)
-
-    # Backwards-compatible helper: return the first name or empty string
-    def extract_drug_name(self, query: str) -> str:
-        """Extract the first explicit drug/ingredient name from the query, or return an empty string."""
-        names = self.extract_drug_names(query)
-        return names[0] if names else ""

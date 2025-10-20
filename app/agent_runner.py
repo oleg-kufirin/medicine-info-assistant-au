@@ -246,7 +246,7 @@ class AgentWorkflow:
                 extra={"query_preview": query[:80], "passage_count": len(passages)},
             )
 
-            summary_text = self.summary_writer.summarize_passages(query, passages) if passages else None
+            summary_text = self.summary_writer.write_summary(query, passages) if passages else None
 
             state["summary_initial"] = summary_text
             state["summary_draft"] = summary_text
@@ -302,7 +302,7 @@ class AgentWorkflow:
 
 
     def _summary_revision_step(self, state: AgentState) -> AgentState:
-        """Revise the summary using critique notes and external context if available."""
+        """Revise the summary using critique notes."""
         start_time = perf_counter()
         try:
             query = state.get("query", "")

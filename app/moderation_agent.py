@@ -62,6 +62,27 @@ class ModerationAgent:
         self._llm: Any = None
         self._chain: Any = None
 
+
+    def classify_safety_and_intent(self, query: str) -> SafetyIntentDecision:
+        """Classify the safety and intent of the given query."""
+        q = (query or "").strip()
+        if not q:
+            return SafetyIntentDecision("empty", False, "empty", False, REFUSAL_EMPTY)
+
+        decision = self._classify_via_llm(q)
+        if decision is None:
+            return SafetyIntentDecision("error", False, "error", False, REFUSAL_ERROR)
+
+        safety_label, safety_allow, intent_label, intent_allow = decision
+        return SafetyIntentDecision(
+            safety_label,
+            safety_allow,
+            intent_label,
+            intent_allow,
+            self._message_for_label(safety_label, intent_label),
+        )
+
+
     def _get_llm(self):
         """Get the language model instance."""
         if self._llm is not None:
@@ -77,6 +98,7 @@ class ModerationAgent:
         model = os.getenv("SAFETY_MODEL", "llama-3.1-8b-instant")
         self._llm = ChatGroq(groq_api_key=api_key, model_name=model, temperature=0)
         return self._llm
+
 
     def _get_classifier_chain(self):
         """Get or create the classification chain."""
@@ -105,6 +127,7 @@ class ModerationAgent:
         self._chain = prompt | llm | parser
         return self._chain
 
+
     def _classify_via_llm(self, query: str) -> Optional[Tuple[str, bool, str, bool]]:
         """Classify the query using the LLM chain."""
         try:
@@ -131,6 +154,7 @@ class ModerationAgent:
 
         return safety_label, safety_allow, intent_label, intent_allow
 
+
     @staticmethod
     def _message_for_label(safety_label: str, intent_label: str) -> str:
         """Get a refusal message based on the safety and intent labels."""
@@ -143,22 +167,3 @@ class ModerationAgent:
         if intent_label == "other":
             return REFUSAL_UNSUPPORTED
         return "The query appears safe and appropriate."
-
-    def classify_safety_and_intent(self, query: str) -> SafetyIntentDecision:
-        """Classify the safety and intent of the given query."""
-        q = (query or "").strip()
-        if not q:
-            return SafetyIntentDecision("empty", False, "empty", False, REFUSAL_EMPTY)
-
-        decision = self._classify_via_llm(q)
-        if decision is None:
-            return SafetyIntentDecision("error", False, "error", False, REFUSAL_ERROR)
-
-        safety_label, safety_allow, intent_label, intent_allow = decision
-        return SafetyIntentDecision(
-            safety_label,
-            safety_allow,
-            intent_label,
-            intent_allow,
-            self._message_for_label(safety_label, intent_label),
-        )

@@ -26,9 +26,163 @@ class SummaryWritingAgent:
         self._rewrite_chain: Any = None
         self._last_error: Dict[str, Any] | None = None
 
+
     def get_last_error(self) -> Dict[str, Any] | None:
         """Return the last error encountered during summarization/rewrite."""
         return self._last_error
+
+
+    def write_summary(self, query: str, passages: Sequence[Any]) -> str | None:
+        """Summarize the given passages in the context of the query."""
+        # Reset last error on each call
+        self._last_error = None
+
+        if not passages:
+            return None
+
+        chain = self._get_summary_chain()
+        if chain is None:
+            return None
+
+        context = self._format_passages_for_summary(passages)
+        if not context:
+            return None
+
+        # Invoke the chain and handle exceptions
+        try:
+            result = chain.invoke({"query": query, "context": context})
+        except Exception as e:
+            # Capture and log the error
+            err_msg = str(e)
+            error_payload: Dict[str, Any] = {"kind": "unknown", "message": err_msg}
+            # Check for Groq API-specific errors
+            import groq
+            if isinstance(e, groq.APIStatusError):
+                status = getattr(e, "status_code", None)
+                error_payload = {"kind": "groq_api_error", "status_code": status, "message": err_msg, }
+            logger.warning("Summarization failed: %s; returning None", err_msg)
+            self._last_error = error_payload
+            return None
+
+        if isinstance(result, str):
+            summary_text = result.strip()
+        else:
+            summary_text = getattr(result, "content", "").strip()
+        return summary_text or None
+
+
+    def rewrite_summary(
+        self,
+        query: str,
+        passages: Sequence[Any],
+        draft_summary: str | None,
+        critique: Dict[str, Any] | None,
+    ) -> str | None:
+        """Generate a revised summary using critique notes."""
+        draft = (draft_summary or "").strip()
+        if not draft:
+            return None
+
+        chain = self._get_rewrite_chain()
+        if chain is None:
+            return None
+
+        context = self._format_passages_for_summary(passages) if passages else ""
+        critique_text = self._format_critique(critique)
+
+        try:
+            revision = chain.invoke(
+                {
+                    "query": query,
+                    "context": context,
+                    "draft": draft,
+                    "critique": critique_text,
+                }
+            )
+        except Exception:
+            return None
+
+        if isinstance(revision, str):
+            revised_text = revision.strip()
+        else:
+            revised_text = getattr(revision, "content", "").strip()
+        return revised_text or None
+
+
+    def _get_summary_chain(self):
+        """Get or create the summarization chain."""
+        if self._chain is not None:
+            return self._chain
+        if not _LC_AVAILABLE:
+            return None
+
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            return None
+
+        model = os.getenv("SUMMARY_MODEL", "llama-3.1-8b-instant")
+        llm = ChatGroq(groq_api_key=api_key, model_name=model, temperature=0.2)
+
+        system_prompt = load_prompt("system_summary")
+        if not system_prompt:
+            return None
+
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", system_prompt),
+                (
+                    "user",
+                    (
+                        "Answer the following question using the text passages.\n\n"
+                        "Question: {query}\n\n"
+                        "Passages:\n{context}"
+                    ),
+                ),
+            ]
+        )
+
+        parser = StrOutputParser()
+        self._chain = prompt | llm | parser
+        return self._chain
+
+
+    def _get_rewrite_chain(self):
+        """Get or create the rewrite chain used for revisions."""
+        if self._rewrite_chain is not None:
+            return self._rewrite_chain
+        if not _LC_AVAILABLE:
+            return None
+
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            return None
+
+        model = os.getenv("SUMMARY_REWRITE_MODEL", os.getenv("SUMMARY_MODEL", "llama-3.1-8b-instant"))
+        llm = ChatGroq(groq_api_key=api_key, model_name=model, temperature=0.2)
+
+        system_prompt = load_prompt("system_summary_rewrite")
+        if not system_prompt:
+            return None
+
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", system_prompt),
+                (
+                    "user",
+                    (
+                        "Question: {query}\n\n"
+                        "Retrieved Passages:\n{context}\n\n"
+                        "Original Draft Summary:\n{draft}\n\n"
+                        "Critique Notes:\n{critique}"
+                    ),
+                ),
+            ]
+        )
+
+        parser = StrOutputParser()
+        self._rewrite_chain = prompt | llm | parser
+        return self._rewrite_chain
+
 
     @staticmethod
     def _format_passages_for_summary(passages: Sequence[Any]) -> str:
@@ -85,117 +239,6 @@ class SummaryWritingAgent:
 
         return result
 
-    def _get_summary_chain(self):
-        """Get or create the summarization chain."""
-        if self._chain is not None:
-            return self._chain
-        if not _LC_AVAILABLE:
-            return None
-
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            return None
-
-        model = os.getenv("SUMMARY_MODEL", "llama-3.1-8b-instant")
-        llm = ChatGroq(groq_api_key=api_key, model_name=model, temperature=0.2)
-
-        system_prompt = load_prompt("system_summary")
-        if not system_prompt:
-            return None
-
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", system_prompt),
-                (
-                    "user",
-                    (
-                        "Answer the following question using the text passages.\n\n"
-                        "Question: {query}\n\n"
-                        "Passages:\n{context}"
-                    ),
-                ),
-            ]
-        )
-
-        parser = StrOutputParser()
-        self._chain = prompt | llm | parser
-        return self._chain
-
-    def _get_rewrite_chain(self):
-        """Get or create the rewrite chain used for revisions."""
-        if self._rewrite_chain is not None:
-            return self._rewrite_chain
-        if not _LC_AVAILABLE:
-            return None
-
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            return None
-
-        model = os.getenv("SUMMARY_REWRITE_MODEL", os.getenv("SUMMARY_MODEL", "llama-3.1-8b-instant"))
-        llm = ChatGroq(groq_api_key=api_key, model_name=model, temperature=0.2)
-
-        system_prompt = load_prompt("system_summary_rewrite")
-        if not system_prompt:
-            return None
-
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", system_prompt),
-                (
-                    "user",
-                    (
-                        "Question: {query}\n\n"
-                        "Retrieved Passages:\n{context}\n\n"
-                        "Original Draft Summary:\n{draft}\n\n"
-                        "Critique Notes:\n{critique}\n\n"
-                        "External Context:\n{external_context}"
-                    ),
-                ),
-            ]
-        )
-
-        parser = StrOutputParser()
-        self._rewrite_chain = prompt | llm | parser
-        return self._rewrite_chain
-
-    def summarize_passages(self, query: str, passages: Sequence[Any]) -> str | None:
-        """Summarize the given passages in the context of the query."""
-        # Reset last error on each call
-        self._last_error = None
-
-        if not passages:
-            return None
-
-        chain = self._get_summary_chain()
-        if chain is None:
-            return None
-
-        context = self._format_passages_for_summary(passages)
-        if not context:
-            return None
-
-        # Invoke the chain and handle exceptions
-        try:
-            result = chain.invoke({"query": query, "context": context})
-        except Exception as e:
-            # Capture and log the error
-            err_msg = str(e)
-            error_payload: Dict[str, Any] = {"kind": "unknown", "message": err_msg}
-            # Check for Groq API-specific errors
-            import groq
-            if isinstance(e, groq.APIStatusError):
-                status = getattr(e, "status_code", None)
-                error_payload = {"kind": "groq_api_error", "status_code": status, "message": err_msg, }
-            logger.warning("Summarization failed: %s; returning None", err_msg)
-            self._last_error = error_payload
-            return None
-
-        if isinstance(result, str):
-            summary_text = result.strip()
-        else:
-            summary_text = getattr(result, "content", "").strip()
-        return summary_text or None
 
     @staticmethod
     def _format_critique(critique: Dict[str, Any] | None) -> str:
@@ -215,63 +258,6 @@ class SummaryWritingAgent:
 
         return "\n".join(part for part in parts if part.strip()) or "No critique provided."
 
-    @staticmethod
-    def _format_external_context(external_context: List[Dict[str, Any]] | None) -> str:
-        if not external_context:
-            return "No external context supplied."
-        sections: List[str] = []
-        for item in external_context:
-            title = str(item.get("title", "") or "").strip()
-            summary = str(item.get("summary", "") or "").strip()
-            url = str(item.get("url", "") or "").strip()
-            query = str(item.get("query", "") or "").strip()
-            details = []
-            if query:
-                details.append(f"Search query: {query}")
-            if url:
-                details.append(f"URL: {url}")
-            header = title or query or "External Context"
-            meta = f" ({'; '.join(details)})" if details else ""
-            body = summary if summary else "No summary available."
-            sections.append(f"{header}{meta}\n{body}")
-        return "\n\n".join(sections)
+
+
     
-    def rewrite_summary(
-        self,
-        query: str,
-        passages: Sequence[Any],
-        draft_summary: str | None,
-        critique: Dict[str, Any] | None,
-        external_context: List[Dict[str, Any]] | None = None,
-    ) -> str | None:
-        """Generate a revised summary using critique notes and external context."""
-        draft = (draft_summary or "").strip()
-        if not draft:
-            return None
-
-        chain = self._get_rewrite_chain()
-        if chain is None:
-            return None
-
-        context = self._format_passages_for_summary(passages) if passages else ""
-        critique_text = self._format_critique(critique)
-        external_text = self._format_external_context(external_context)
-
-        try:
-            revision = chain.invoke(
-                {
-                    "query": query,
-                    "context": context,
-                    "draft": draft,
-                    "critique": critique_text,
-                    "external_context": external_text,
-                }
-            )
-        except Exception:
-            return None
-
-        if isinstance(revision, str):
-            revised_text = revision.strip()
-        else:
-            revised_text = getattr(revision, "content", "").strip()
-        return revised_text or None

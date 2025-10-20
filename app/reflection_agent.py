@@ -42,77 +42,6 @@ class ReflectionAgent:
         return self._last_error
 
 
-    @staticmethod
-    def _format_passages(passages: Sequence[Any]) -> str:
-        """Create a condensed text block describing the retrieved passages."""
-        chunks: List[str] = []
-        for idx, passage in enumerate(passages, start=1):
-            if isinstance(passage, dict):
-                text = passage.get("text", "") or ""
-                url = passage.get("url")
-                section = passage.get("section")
-            else:
-                text = getattr(passage, "text", "") or ""
-                url = getattr(passage, "url", None)
-                section = getattr(passage, "section", None)
-
-            snippet = " ".join(str(text).strip().split())
-            if not snippet:
-                continue
-            # snippet = snippet[: ReflectionAgent.PASSAGE_SNIPPET_LIMIT]
-
-            meta: List[str] = []
-            if section:
-                meta.append(f"section: {section}")
-            if url:
-                meta.append(f"url: {url}")
-
-            meta_suffix = f" ({'; '.join(meta)})" if meta else ""
-            chunks.append(f"Passage {idx}{meta_suffix}:\n{snippet}")
-        return "\n\n".join(chunks)
-
-
-    def _get_chain(self) -> Any:
-        """Create (or reuse) the reflection chain."""
-        if self._chain is not None:
-            return self._chain
-
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            return None
-
-        model = os.getenv("REFLECTION_MODEL", os.getenv("SUMMARY_MODEL", "llama-3.1-8b-instant"))
-        llm = ChatGroq(groq_api_key=api_key, model_name=model, temperature=0.2)
-        structured_llm = llm.with_structured_output(ReflectionPayload, method="json_mode")
-
-        system_prompt = load_prompt("system_reflection_v2")
-        if not system_prompt:
-            return None
-
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", system_prompt),
-                (
-                    "user",
-                    (
-                        "Question: {query}\n\n"
-                        "Draft Summary:\n{summary}\n\n"
-                        "Retrieved Passages:\n{context}"
-                    ),
-                ),
-            ]
-        )
-
-        self._chain = prompt | structured_llm
-        return self._chain
-
-
-    @staticmethod
-    def _default_response() -> Dict[str, Any]:
-        """Fallback response when reflection cannot run."""
-        return ReflectionPayload().model_dump()
-
-
     def review_summary(self, query: str, passages: Sequence[Any], summary_text: str | None, ) -> Dict[str, Any]:
         """Critique the summary and recommend follow-up actions."""
         if not summary_text:
@@ -146,3 +75,74 @@ class ReflectionAgent:
         reflection = result.model_dump()
 
         return reflection or self._default_response()
+
+
+    def _get_chain(self) -> Any:
+        """Create (or reuse) the reflection chain."""
+        if self._chain is not None:
+            return self._chain
+
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            return None
+
+        model = os.getenv("REFLECTION_MODEL", os.getenv("SUMMARY_MODEL", "llama-3.1-8b-instant"))
+        llm = ChatGroq(groq_api_key=api_key, model_name=model, temperature=0.2)
+        structured_llm = llm.with_structured_output(ReflectionPayload, method="json_mode")
+
+        system_prompt = load_prompt("system_reflection")
+        if not system_prompt:
+            return None
+
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", system_prompt),
+                (
+                    "user",
+                    (
+                        "Question: {query}\n\n"
+                        "Draft Summary:\n{summary}\n\n"
+                        "Retrieved Passages:\n{context}"
+                    ),
+                ),
+            ]
+        )
+
+        self._chain = prompt | structured_llm
+        return self._chain
+
+
+    @staticmethod
+    def _format_passages(passages: Sequence[Any]) -> str:
+        """Create a condensed text block describing the retrieved passages."""
+        chunks: List[str] = []
+        for idx, passage in enumerate(passages, start=1):
+            if isinstance(passage, dict):
+                text = passage.get("text", "") or ""
+                url = passage.get("url")
+                section = passage.get("section")
+            else:
+                text = getattr(passage, "text", "") or ""
+                url = getattr(passage, "url", None)
+                section = getattr(passage, "section", None)
+
+            snippet = " ".join(str(text).strip().split())
+            if not snippet:
+                continue
+            # snippet = snippet[: ReflectionAgent.PASSAGE_SNIPPET_LIMIT]
+
+            meta: List[str] = []
+            if section:
+                meta.append(f"section: {section}")
+            if url:
+                meta.append(f"url: {url}")
+
+            meta_suffix = f" ({'; '.join(meta)})" if meta else ""
+            chunks.append(f"Passage {idx}{meta_suffix}:\n{snippet}")
+        return "\n\n".join(chunks)
+
+
+    @staticmethod
+    def _default_response() -> Dict[str, Any]:
+        """Fallback response when reflection cannot run."""
+        return ReflectionPayload().model_dump()

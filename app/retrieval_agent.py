@@ -39,26 +39,6 @@ class RetrievalAgent:
         self._index: faiss.Index | None = None
         self._docs: Sequence[dict] | None = None
 
-    def _ensure_index(self) -> Tuple[faiss.Index | None, Sequence[dict] | None]:
-        """Load or create the FAISS index and associated documents."""
-        if self._index is not None and self._docs is not None:
-            return self._index, self._docs
-
-        if not (os.path.exists(self.docs_path) and os.path.exists(self.index_path)):
-            self._index, self._docs = None, None
-            return self._index, self._docs
-
-        self._index = faiss.read_index(self.index_path)
-        with open(self.docs_path, "r", encoding="utf-8") as handle:
-            self._docs = [json.loads(line) for line in handle]
-        return self._index, self._docs
-
-    def _embed(self, texts: Sequence[str]) -> np.ndarray:
-        """Generate embeddings for a list of texts."""
-        embeddings = self._model.encode(
-            texts, convert_to_numpy=True, normalize_embeddings=True
-        )
-        return embeddings.astype("float32")
 
     def retrieve(self, query: str, top_k: int = 20, restrict_names: List[str] | None = None) -> List[Passage]:
         """Retrieve relevant passages for the given query."""
@@ -132,3 +112,26 @@ class RetrievalAgent:
         if len(filtered) >= self.min_passages:
             return filtered[: self.max_passages]
         return passages[: self.min_passages]
+
+
+    def _ensure_index(self) -> Tuple[faiss.Index | None, Sequence[dict] | None]:
+        """Load or create the FAISS index and associated documents."""
+        if self._index is not None and self._docs is not None:
+            return self._index, self._docs
+
+        if not (os.path.exists(self.docs_path) and os.path.exists(self.index_path)):
+            self._index, self._docs = None, None
+            return self._index, self._docs
+
+        self._index = faiss.read_index(self.index_path)
+        with open(self.docs_path, "r", encoding="utf-8") as handle:
+            self._docs = [json.loads(line) for line in handle]
+        return self._index, self._docs
+
+
+    def _embed(self, texts: Sequence[str]) -> np.ndarray:
+        """Generate embeddings for a list of texts."""
+        embeddings = self._model.encode(
+            texts, convert_to_numpy=True, normalize_embeddings=True
+        )
+        return embeddings.astype("float32")
