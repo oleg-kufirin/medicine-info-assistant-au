@@ -153,7 +153,7 @@ with hero_container:
         if HERO_IMAGE.exists():
             st.image(
                 str(HERO_IMAGE),
-                use_column_width=True,
+                width='stretch',
             )
         else:
             st.markdown(
