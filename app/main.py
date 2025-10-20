@@ -33,20 +33,20 @@ CUSTOM_CSS = """
 .hero-card {
     background: rgba(255, 255, 255, 0.92);
     border-radius: 18px;
-    padding: 36px 40px;
+    padding: 24px 28px;
     box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
     border: 1px solid #c7e3ff;
 }
 .hero-title {
-    font-size: 2.1rem;
+    font-size: 1.8rem;
     font-weight: 700;
     color: #0b5394;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
 }
 .hero-subtitle {
-    font-size: 1.1rem;
+    font-size: 1.0rem;
     color: #1e3a5f;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.0rem;
 }
 .pill-button button {
     border-radius: 999px !important;
@@ -90,14 +90,14 @@ CUSTOM_CSS = """
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 280px;
+    min-height: 220px;
     border: 2px dashed #93c5fd;
     border-radius: 16px;
     background: rgba(255, 255, 255, 0.85);
     color: #1e3a5f;
     font-size: 1rem;
     text-align: center;
-    padding: 2rem;
+    padding: 1.25rem;
 }
 </style>
 """
@@ -123,7 +123,7 @@ SAMPLE_QUESTIONS = load_lines(SAMPLE_QUESTIONS_PATH)
 
 hero_container = st.container()
 with hero_container:
-    left, right = st.columns([3, 2])
+    left, right = st.columns([3, 1.6])
     with left:
         pill_row = st.columns([1.1, 2, 4])
         with pill_row[0]:
@@ -142,7 +142,7 @@ with hero_container:
             (
                 "<div class='hero-card'>"
                 "<div class='hero-title'>Patient Information Assistant (CMI/PI)</div>"
-                "<div class='hero-subtitle'>Find authoritative Consumer Medicine Information (CMI) and Product Information (PI) answers in seconds. Designed as a safety-first assistant &mdash; never a substitute for professional medical advice.</div>"
+                "<div class='hero-subtitle'>Find authoritative Consumer Medicine Information (CMI) and Product Information (PI) answers in seconds.<br/>Designed as a safety-first assistant &mdash; never a substitute for professional medical advice.</div>"
                 "</div>"
             ),
             unsafe_allow_html=True,
@@ -151,7 +151,6 @@ with hero_container:
         if HERO_IMAGE.exists():
             st.image(
                 str(HERO_IMAGE),
-                caption="Your uploaded hero image",
                 use_column_width=True,
             )
         else:
@@ -203,13 +202,16 @@ if submitted and query:
     pbar = st.progress(0.0, text="Starting…")
 
     def on_event(step: str, phase: str, label: str | None = None) -> None:
-        # Update status panel and progress bar from agent callbacks
+        # Update status panel; only advance progress for known pipeline steps
         if phase == "start":
             status.update(label=label or f"Running {step.replace('_', ' ')}…", state="running")
-        else:
-            idx = step_index.get(step, 0)
-            frac = min(1.0, (idx + 1) / max(1, len(steps)))
-            pbar.progress(frac, text=f"Completed {step.replace('_', ' ')}")
+            return
+        # phase == 'end'
+        if step not in step_index:
+            return  # ignore non-pipeline events like 'workflow'
+        idx = step_index[step]
+        frac = min(1.0, (idx + 1) / max(1, len(steps)))
+        pbar.progress(frac, text=f"Completed {step.replace('_', ' ')}")
 
     workflow = agent_runner.AgentWorkflow(on_event=on_event)
 
@@ -223,6 +225,7 @@ if submitted and query:
         st.error("An unexpected error occurred while generating the answer. Please try again.")
         st.stop()
     finally:
+        # Safety clear
         pbar.empty()
 
     st.session_state.last_query = query
