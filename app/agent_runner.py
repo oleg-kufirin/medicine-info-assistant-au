@@ -3,6 +3,7 @@ import logging
 from time import perf_counter
 from typing import Any, Dict, List, TypedDict, Callable, Optional
 from langgraph.graph import StateGraph, END
+from utils import format_passages_for_context
 from moderation_agent import ModerationAgent
 from drug_detection_agent import DrugDetectionAgent
 from reflection_agent import ReflectionAgent
@@ -24,6 +25,8 @@ class AgentState(TypedDict, total=False):
     detected_drug_names: List[str]
     # Updated by RetrievalAgent
     passages: List[Passage] | List[Dict[str, Any]]
+    # Preformatted passages context for prompts
+    passages_context: str
     # Updated by SummaryWritingAgent
     summary_initial: str | None
     summary_draft: str | None
@@ -202,7 +205,7 @@ class AgentWorkflow:
         try:
             self._ui("retrieval", "start", "Retrieving relevant passages…")
             query = state.get("query", "")
-            detected_names = state.get("detected_drug_names") or []
+            detected_names = state.get("detected_drug_names", [])
             restrict = detected_names if isinstance(detected_names, list) and detected_names else None
 
             logger.debug(
@@ -213,12 +216,13 @@ class AgentWorkflow:
                 },
             )
 
-            if restrict:
-                passages = self.retriever.retrieve(query, top_k=20, restrict_names=restrict)
-            else:
-                passages = self.retriever.retrieve(query)
+            passages = self.retriever.retrieve(query, top_k=20, restrict_names=restrict)
 
             state["passages"] = passages
+            # Pre-compute and store formatted passages context for prompts
+            passages_context  = format_passages_for_context(passages)
+            state["passages_context"] = passages_context
+
             logger.debug(
                 "[END] Retrieval completed",
                 extra={
@@ -239,14 +243,15 @@ class AgentWorkflow:
         try:
             self._ui("summary_writing", "start", "Writing and refining summary…")
             query = state.get("query", "")
-            passages = state.get("passages", [])
+            passages_context = state.get("passages_context", "")
 
             logger.debug(
                 "[START] Running summary writing step",
-                extra={"query_preview": query[:80], "passage_count": len(passages)},
+                extra={"query_preview": query[:80], "passages_context_length": len(passages_context)},
             )
 
-            summary_text = self.summary_writer.write_summary(query, passages) if passages else None
+
+            summary_text = self.summary_writer.write_summary(query, passages_context) if passages_context else None
 
             state["summary_initial"] = summary_text
             state["summary_draft"] = summary_text
@@ -272,19 +277,16 @@ class AgentWorkflow:
         try:
             self._ui("reflection_writing", "start", "Reviewing summary for completeness…")
             query = state.get("query", "")
-            passages = state.get("passages", [])
+            passages_context = state.get("passages_context", "")
             summary_text = state.get("summary_draft")
 
             logger.debug(
                 "[START] Running reflection review step",
-                extra={
-                    "query_preview": query[:80],
-                    "has_summary": bool(summary_text),
-                    "passage_count": len(passages),
-                },
+                extra={"query_preview": query[:80], "has_summary": bool(summary_text), "passages_context_length": len(passages_context)},
             )
 
-            critique = self.reflection_reviewer.review_summary(query, passages, summary_text)
+            
+            critique = self.reflection_reviewer.review_summary(query, summary_text, passages_context)
             state["summary_critique"] = critique
 
             logger.debug(
@@ -306,23 +308,17 @@ class AgentWorkflow:
         start_time = perf_counter()
         try:
             query = state.get("query", "")
-            passages = state.get("passages", [])
+            passages_context = state.get("passages_context", "")
             draft = state.get("summary_draft")
             critique = state.get("summary_critique")
+
             logger.debug(
                 "[START] Running summary revision step",
-                extra={
-                    "query_preview": query[:80],
-                    "has_draft": bool(draft),
-                    "critique_present": bool(critique),
-                },
+                extra={"query_preview": query[:80], "has_draft": bool(draft), "critique_present": bool(critique), "passages_context_length": len(passages_context)},
             )
-            revised = self.summary_writer.rewrite_summary(
-                query,
-                passages,
-                draft,
-                critique,
-            )
+
+            revised = self.summary_writer.rewrite_summary(query, draft, critique, passages_context)
+
             if revised:
                 state["summary_draft"] = revised
                 logger.debug("[END] Summary revision completed")
@@ -368,7 +364,9 @@ class AgentWorkflow:
             initial_state: AgentState = {
                 "query": query,
                 "safety_intent_decision": {},
+                "detected_drug_names": [],
                 "passages": [],
+                "passages_context": "",
                 "summary_initial": None,
                 "summary_draft": None,
                 "summary_critique": None,

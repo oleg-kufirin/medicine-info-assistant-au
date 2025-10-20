@@ -32,25 +32,21 @@ class SummaryWritingAgent:
         return self._last_error
 
 
-    def write_summary(self, query: str, passages: Sequence[Any]) -> str | None:
+    def write_summary(self, query: str, preformatted_passages: str | None = None) -> str | None:
         """Summarize the given passages in the context of the query."""
         # Reset last error on each call
         self._last_error = None
 
-        if not passages:
+        if not preformatted_passages:
             return None
 
         chain = self._get_summary_chain()
         if chain is None:
             return None
 
-        context = self._format_passages_for_summary(passages)
-        if not context:
-            return None
-
         # Invoke the chain and handle exceptions
         try:
-            result = chain.invoke({"query": query, "context": context})
+            result = chain.invoke({"query": query, "context": preformatted_passages})
         except Exception as e:
             # Capture and log the error
             err_msg = str(e)
@@ -71,13 +67,7 @@ class SummaryWritingAgent:
         return summary_text or None
 
 
-    def rewrite_summary(
-        self,
-        query: str,
-        passages: Sequence[Any],
-        draft_summary: str | None,
-        critique: Dict[str, Any] | None,
-    ) -> str | None:
+    def rewrite_summary(self, query: str, draft_summary: str | None, critique: Dict[str, Any] | None, preformatted_passages: str | None = None,) -> str | None:
         """Generate a revised summary using critique notes."""
         draft = (draft_summary or "").strip()
         if not draft:
@@ -87,18 +77,10 @@ class SummaryWritingAgent:
         if chain is None:
             return None
 
-        context = self._format_passages_for_summary(passages) if passages else ""
         critique_text = self._format_critique(critique)
 
         try:
-            revision = chain.invoke(
-                {
-                    "query": query,
-                    "context": context,
-                    "draft": draft,
-                    "critique": critique_text,
-                }
-            )
+            revision = chain.invoke({"query": query, "context": preformatted_passages, "draft": draft, "critique": critique_text,})
         except Exception:
             return None
 
@@ -182,63 +164,6 @@ class SummaryWritingAgent:
         parser = StrOutputParser()
         self._rewrite_chain = prompt | llm | parser
         return self._rewrite_chain
-
-
-    @staticmethod
-    def _format_passages_for_summary(passages: Sequence[Any]) -> str:
-        """Format passages into a single string for the summarization prompt."""
-        chunks: List[str] = []
-        passage_scores: List[float] = []
-
-        # Per-passage snippet cap (normalized chars) used when formatting LLM context
-        # Large values risk exceeding model limits; set to 0 to disable
-        per_snippet_limit = int(os.getenv("SUMMARY_PASSAGE_SNIPPET_LIMIT", "4000"))
-        context_budget = int(os.getenv("SUMMARY_MAX_CONTEXT_CHARS", "20000"))
-
-
-        if context_budget == 0:
-            context_budget = 1_000_000_000  # effectively unlimited
-        header_overhead = 64  # rough allowance per chunk for labels/meta
-
-        for idx, passage in enumerate(passages, start=1):
-            # Capture passage score when available (object or dict)
-            raw_score = passage.get("score") if isinstance(passage, dict) else getattr(passage, "score", None)
-            passage_scores.append(float(raw_score))
-
-            text = getattr(passage, "text", "") or ""
-            snippet = str(text).strip()
-            if not snippet:
-                continue
-
-            snippet = " ".join(snippet.split())
-
-            # Enforce per-snippet and total-context limits
-            current_len = sum(len(c) for c in chunks)
-            remaining = context_budget - current_len - header_overhead
-            if remaining <= 0:
-                break
-            per_limit = remaining if per_snippet_limit == 0 else per_snippet_limit
-            allowed = min(per_limit, max(0, remaining))
-            snippet = snippet[:allowed]
-
-            meta: List[str] = []
-            section = getattr(passage, "section", None)
-            if section:
-                meta.append(f"section: {section}")
-
-            url = getattr(passage, "url", None)
-            if url:
-                meta.append(f"url: {url}")
-
-            meta_suffix = f" ({'; '.join(meta)})" if meta else ""
-            chunks.append(f"Passage {idx}{meta_suffix}:\n{snippet}")
-
-        result = "\n\n".join(chunks)
-        # Log all passage scores for visibility
-        logger.info("Summary passages scores: %s", ", ".join(f"{s:.4f}" for s in passage_scores))
-
-        return result
-
 
     @staticmethod
     def _format_critique(critique: Dict[str, Any] | None) -> str:

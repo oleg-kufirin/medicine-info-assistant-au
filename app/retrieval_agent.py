@@ -17,7 +17,6 @@ class Passage:
     url: str | None = None
     section: str | None = None
     score: float = 0.0
-    # Optional metadata carried through from the source doc for filtering/debugging
     drug_name: Optional[str] = None
     active_ingridients: Optional[List[str]] = None
 

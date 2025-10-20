@@ -42,7 +42,7 @@ class ReflectionAgent:
         return self._last_error
 
 
-    def review_summary(self, query: str, passages: Sequence[Any], summary_text: str | None, ) -> Dict[str, Any]:
+    def review_summary(self, query: str, summary_text: str | None, preformatted_passages: str | None = None) -> Dict[str, Any]:
         """Critique the summary and recommend follow-up actions."""
         if not summary_text:
             return self._default_response()
@@ -52,12 +52,9 @@ class ReflectionAgent:
         if chain is None:
             return self._default_response()
 
-        # Format the context passages for the prompt
-        context = self._format_passages(passages) if passages else ""
-
         # Run the reflection chain
         try:
-            result = chain.invoke({"query": query, "context": context, "summary": summary_text})
+            result = chain.invoke({"query": query, "context": preformatted_passages, "summary": summary_text})
         except Exception as e:
             # Capture and log the error
             err_msg = str(e)
@@ -110,36 +107,6 @@ class ReflectionAgent:
 
         self._chain = prompt | structured_llm
         return self._chain
-
-
-    @staticmethod
-    def _format_passages(passages: Sequence[Any]) -> str:
-        """Create a condensed text block describing the retrieved passages."""
-        chunks: List[str] = []
-        for idx, passage in enumerate(passages, start=1):
-            if isinstance(passage, dict):
-                text = passage.get("text", "") or ""
-                url = passage.get("url")
-                section = passage.get("section")
-            else:
-                text = getattr(passage, "text", "") or ""
-                url = getattr(passage, "url", None)
-                section = getattr(passage, "section", None)
-
-            snippet = " ".join(str(text).strip().split())
-            if not snippet:
-                continue
-            # snippet = snippet[: ReflectionAgent.PASSAGE_SNIPPET_LIMIT]
-
-            meta: List[str] = []
-            if section:
-                meta.append(f"section: {section}")
-            if url:
-                meta.append(f"url: {url}")
-
-            meta_suffix = f" ({'; '.join(meta)})" if meta else ""
-            chunks.append(f"Passage {idx}{meta_suffix}:\n{snippet}")
-        return "\n\n".join(chunks)
 
 
     @staticmethod
