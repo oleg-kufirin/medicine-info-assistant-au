@@ -1,5 +1,5 @@
 import os
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence
 from dotenv import load_dotenv
 
 load_dotenv()

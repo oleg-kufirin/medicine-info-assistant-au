@@ -349,21 +349,6 @@ class AgentWorkflow:
             self._ui("response_building", "end")
 
 
-    def _serialize_passages(self, passages: List[Any]) -> List[Dict[str, Any]]:
-        """Serialize Passage objects into dictionaries."""
-        serialized: List[Dict[str, Any]] = []
-        for p in passages:
-            serialized.append(
-                {
-                    "text": getattr(p, "text", ""),
-                    "url": getattr(p, "url", None),
-                    "section": getattr(p, "section", None),
-                    "score": float(getattr(p, "score", 0.0) or 0.0),
-                }
-            )
-        return serialized
-
-
     def _ui(self, step: str, phase: str, label: str | None = None) -> None:
         """Safely emit UI events if a callback is provided.
 

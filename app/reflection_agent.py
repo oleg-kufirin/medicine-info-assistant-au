@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 import logging
 
-from typing import Any, Dict, List, Sequence
+from typing import Dict, List, Sequence
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 from utils import load_prompt
 
 from langchain_groq import ChatGroq
@@ -29,8 +29,6 @@ class ReflectionPayload(BaseModel):
 
 class ReflectionAgent:
     """Agent that critiques a summary draft and identifies missing context."""
-
-    PASSAGE_SNIPPET_LIMIT = 1000
 
     def __init__(self) -> None:
         self._chain: Any = None

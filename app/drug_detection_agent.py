@@ -23,7 +23,6 @@ class DrugDetectionAgent:
 
     Public methods:
     - extract_drug_names(query: str) -> List[str]
-    - extract_drug_name(query: str) -> str  (compat: first name or empty string)
     """
 
     def __init__(self) -> None:

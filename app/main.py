@@ -315,7 +315,7 @@ if result:
 
         bullets = answer.get("bullets", [])
         if bullets:
-            st.markdown("<div class='highlight-list'><strong>Highlights</strong><ul>", unsafe_allow_html=True)
+            items_html = []
             for b in bullets:
                 if isinstance(b, dict):
                     text = b.get("text", "")
@@ -345,11 +345,17 @@ if result:
                         else ""
                     )
 
-                    # Place suffix on its own line under the snippet
-                    st.markdown(f"<li>{text}<br>{suffix_html}</li>", unsafe_allow_html=True)
+                    # Compose list item
+                    items_html.append(f"<li>{text}<br>{suffix_html}</li>")
                 else:
-                    st.markdown(f"<li>{b}</li>", unsafe_allow_html=True)
-            st.markdown("</ul></div>", unsafe_allow_html=True)
+                    items_html.append(f"<li>{b}</li>")
+
+            list_html = (
+                "<div class='highlight-list'><strong>Highlights</strong><ol>"
+                + "".join(items_html)
+                + "</ol></div>"
+            )
+            st.markdown(list_html, unsafe_allow_html=True)
 
         citations = answer.get("citations", [])
         if citations:
