@@ -38,10 +38,12 @@ class AgentState(TypedDict, total=False):
 
 
 class AgentWorkflow:
-    def __init__(self, on_event: Optional[Callable[[str, str, str | None], None]] = None) -> None:
+    def __init__(self, on_event: Optional[Callable[[str, str, str | None], None]] = None, mode: str = "advanced") -> None:
         """
         Initialize the multi-agent workflow with moderation, retrieval, and summarization agents.
         """
+        # Run mode: "advanced" runs reflection + revision; "light" skips them
+        self.mode = mode
         self.on_event = on_event
         self.moderation = ModerationAgent() 
         self.drug_detector = DrugDetectionAgent()
@@ -67,6 +69,7 @@ class AgentWorkflow:
 
         # Add edges
         workflow.set_entry_point("moderation")
+        # After moderation, branch based on allow decision
         workflow.add_conditional_edges(
             "moderation",
             self._decide_after_moderation,
@@ -75,6 +78,7 @@ class AgentWorkflow:
                 False: END,
             },
         )
+        # After drug detection, branch based on detected drugs
         workflow.add_conditional_edges(
             "drug_detection",
             self._decide_after_drug_detection,
@@ -84,8 +88,15 @@ class AgentWorkflow:
             },
         )
         workflow.add_edge("retrieval", "summary_writing")
-        # workflow.add_edge("summary_writing", "response_building") # For testing without reflection
-        workflow.add_edge("summary_writing", "reflection")
+        # After summary, branch based on mode
+        workflow.add_conditional_edges(
+            "summary_writing",
+            self._decide_after_summary_writing,
+            {
+                "advanced": "reflection",
+                "light": "response_building",
+            },
+        )
         workflow.add_edge("reflection", "summary_revision")
         workflow.add_edge("summary_revision", "response_building")
         workflow.add_edge("response_building", END)
@@ -126,7 +137,7 @@ class AgentWorkflow:
         """Perform moderation on the query."""
         start_time = perf_counter()
         try:
-            self._ui("moderation", "start", "Checking safety and intent…")
+            self._ui("moderation", "start", "👮🏻‍♂️ Moderation agent is working…Analyzing query for safety and intent")
             query = state.get("query", "")
             logger.debug("[START] Running moderation step", extra={"query_preview": query[:80]})
             decision = self.moderation.classify_safety_and_intent(query)
@@ -167,7 +178,7 @@ class AgentWorkflow:
         """Perform drug detection on the query."""
         start_time = perf_counter()
         try:
-            self._ui("drug_detection", "start", "Detecting drug names in query…")
+            self._ui("drug_detection", "start", "💊 Drug detection agent is working…Identifying drug names in the query")
             query = state.get("query", "")
             logger.debug("[START] Running drug detection step", extra={"query_preview": query[:80]})
 
@@ -198,7 +209,7 @@ class AgentWorkflow:
         """Retrieve relevant passages based on the query."""
         start_time = perf_counter()
         try:
-            self._ui("retrieval", "start", "Retrieving relevant passages…")
+            self._ui("retrieval", "start", "🧲 Retrieval agent is working…Fetching relevant passages")
             query = state.get("query", "")
             detected_names = state.get("detected_drug_names", [])
             restrict = detected_names if isinstance(detected_names, list) and detected_names else None
@@ -236,7 +247,7 @@ class AgentWorkflow:
         """Summarize the retrieved passages and synthesize an answer."""
         start_time = perf_counter()
         try:
-            self._ui("summary_writing", "start", "Writing and refining summary…")
+            self._ui("summary_writing", "start", "👩‍💻 Summary writing agent is working…Generating initial summary")
             query = state.get("query", "")
             passages_context = state.get("passages_context", "")
 
@@ -265,11 +276,16 @@ class AgentWorkflow:
             self._ui("summary_writing", "end")
 
 
+    def _decide_after_summary_writing(self, state: AgentState) -> str:
+        """Decide next step after summary based on configured mode."""
+        return "advanced" if self.mode == "advanced" else "light"
+
+
     def _reflection_step(self, state: AgentState) -> AgentState:
         """Critique the summary draft and recommend follow-up actions."""
         start_time = perf_counter()
         try:
-            self._ui("reflection_writing", "start", "Reviewing summary for completeness…")
+            self._ui("reflection_writing", "start", "🧑‍🏫 Reflection agent is working...Reviewing summary draft")
             query = state.get("query", "")
             passages_context = state.get("passages_context", "")
             summary_text = state.get("summary_draft")
@@ -301,6 +317,7 @@ class AgentWorkflow:
         """Revise the summary using critique notes."""
         start_time = perf_counter()
         try:
+            self._ui("summary_revision", "start", "👩‍💻 Summary writing agent is working...Revising summary based on review notes")
             query = state.get("query", "")
             passages_context = state.get("passages_context", "")
             draft = state.get("summary_draft")
@@ -322,6 +339,7 @@ class AgentWorkflow:
         finally:
             elapsed_s = perf_counter() - start_time
             logger.info("Step latency - Summary Revision: %.2f s \n", elapsed_s)
+            self._ui("summary_revision", "end")
 
 
     def _response_building_step(self, state: AgentState) -> AgentState:
@@ -332,12 +350,15 @@ class AgentWorkflow:
             query = state.get("query", "")
             passages = state.get("passages", [])
             summary_text = state.get("summary_draft")
+
             logger.debug(
                 "[START] Running response builder step",
                 extra={"query_preview": query[:80], "passage_count": len(passages), "draft_summary_available": bool(summary_text)},
             )
+
             answer = response_builder.synthesize_answer(query, passages, summary_text=summary_text)
             state["answer"] = answer
+
             logger.debug(
                 "[END] Response building completed",
                 extra={"answer_built": bool(answer)},
@@ -364,4 +385,3 @@ class AgentWorkflow:
         except Exception:
             # Never let UI wiring break the agent
             logger.debug("UI callback failed for step=%s phase=%s", step, phase)
-

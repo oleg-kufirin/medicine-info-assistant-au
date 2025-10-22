@@ -101,6 +101,15 @@ CUSTOM_CSS = """
     text-align: center;
     padding: 1.25rem;
 }
+
+/* Segmented control: selected tab (simple + robust) */
+div[data-testid="stSegmentedControl"] [role="tablist"] [aria-selected="true"] {
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
+    color: #ffffff !important;
+    border-color: #2563eb !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
 </style>
 """
 
@@ -140,6 +149,18 @@ with hero_container:
                 st.session_state.pill_state["sample_questions"] = True
                 st.session_state.pill_state["drug_list"] = False
             st.markdown("</div>", unsafe_allow_html=True)
+        # Spacer: pill_row[2]
+        with pill_row[2]:
+            # Align segmented control to the right within this column using subcolumns
+            right_align = st.columns([2, 1])
+            with right_align[1]:
+                st.segmented_control(
+                    "Mode",
+                    options=["Light", "Advanced"],
+                    default="Advanced",
+                    key="run_mode_segment",
+                    help="Light mode skips review/rewrite for faster results",
+                )
         st.markdown(
             (
                 "<div class='hero-card'>"
@@ -191,17 +212,17 @@ with st.form(key="query_form"):
 # When user submits, run and persist result so it survives reruns
 if submitted and query:
     # Live status + progress while the agent runs
-    steps = [
-        "moderation",
-        "drug_detection",
-        "retrieval",
-        "summary_writing",
-        "reflection_writing",
-        "response_building",
-    ]
+    # Read segmented control selection; default to Advanced
+    selected_mode = st.session_state.get("run_mode_segment", "Advanced")
+    adv_mode = str(selected_mode).lower() == "advanced"
+    steps = ["moderation", "drug_detection", "retrieval", "summary_writing"]
+    if adv_mode:
+        steps.append("reflection_writing")
+        steps.append("summary_revision")
+    steps.append("response_building")
     step_index = {name: i for i, name in enumerate(steps)}
 
-    status = st.status("Preparing…", expanded=True)
+    status = st.status("Preparing…", expanded=False)
     pbar = st.progress(0.0, text="Starting…")
 
     def on_event(step: str, phase: str, label: str | None = None) -> None:
@@ -216,7 +237,8 @@ if submitted and query:
         frac = min(1.0, (idx + 1) / max(1, len(steps)))
         pbar.progress(frac, text=f"Completed {step.replace('_', ' ')}")
 
-    workflow = agent_runner.AgentWorkflow(on_event=on_event)
+    run_mode = "advanced" if adv_mode else "light"
+    workflow = agent_runner.AgentWorkflow(on_event=on_event, mode=run_mode)
 
     # Run the workflow and handle exceptions
     try:
