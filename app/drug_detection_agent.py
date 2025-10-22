@@ -49,13 +49,6 @@ class DrugDetectionAgent:
         return self._clean_names(names)
 
 
-    # Backwards-compatible helper: return the first name or empty string
-    def extract_drug_name(self, query: str) -> str:
-        """Extract the first explicit drug/ingredient name from the query, or return an empty string."""
-        names = self.extract_drug_names(query)
-        return names[0] if names else ""
-
-
     def _get_chain(self):
         """Create (or reuse) the extraction chain that returns structured output."""
         if self._chain is not None:

@@ -9,7 +9,6 @@ from drug_detection_agent import DrugDetectionAgent
 from reflection_agent import ReflectionAgent
 from retrieval_agent import Passage, RetrievalAgent
 from summary_writing_agent import SummaryWritingAgent
-# from wikipedia_tool import WikipediaLookupTool
 
 import response_builder
 
@@ -49,25 +48,7 @@ class AgentWorkflow:
         self.retriever = RetrievalAgent()
         self.summary_writer = SummaryWritingAgent()
         self.reflection_reviewer = ReflectionAgent()
-        # self.wikipedia_tool = WikipediaLookupTool()
         self.compiled_workflow = self.build_workflow()
-
-
-    def _ui(self, step: str, phase: str, label: str | None = None) -> None:
-        """Safely emit UI events if a callback is provided.
-
-        step: machine step name, e.g. 'retrieval'
-        phase: 'start' | 'end'
-        label: optional human-friendly label
-        """
-        cb = self.on_event
-        if not cb:
-            return
-        try:
-            cb(step, phase, label)
-        except Exception:
-            # Never let UI wiring break the agent
-            logger.debug("UI callback failed for step=%s phase=%s", step, phase)
 
 
     def build_workflow(self) -> Any:
@@ -110,6 +91,35 @@ class AgentWorkflow:
         workflow.add_edge("response_building", END)
         
         return workflow.compile()
+
+
+    def run(self, query: str) -> AgentState:
+        """Run the compiled workflow with the given query."""
+        start_time = perf_counter()
+        try:
+            logger.debug("Starting agent workflow \n", extra={"query": query})
+            self._ui("workflow", "start", "Starting analysis…")
+            initial_state: AgentState = {
+                "query": query,
+                "safety_intent_decision": {},
+                "detected_drug_names": [],
+                "passages": [],
+                "passages_context": "",
+                "summary_initial": None,
+                "summary_draft": None,
+                "summary_critique": None,
+                "answer": {},
+            }
+            final_state = self.compiled_workflow.invoke(initial_state)
+            return final_state
+        except Exception as e:
+            logger.exception("Agent workflow execution failed", extra={"query": query})
+            raise
+        finally:
+            elapsed_s = perf_counter() - start_time
+            logger.info("Total inference latency: %.2f s", elapsed_s)
+            print('-'*50)
+            self._ui("workflow", "end", "Analysis complete")
 
 
     def _moderation_step(self, state: AgentState) -> AgentState:
@@ -184,21 +194,6 @@ class AgentWorkflow:
         return bool(detected_drug_names)
 
 
-    def _serialize_passages(self, passages: List[Any]) -> List[Dict[str, Any]]:
-        """Serialize Passage objects into dictionaries."""
-        serialized: List[Dict[str, Any]] = []
-        for p in passages:
-            serialized.append(
-                {
-                    "text": getattr(p, "text", ""),
-                    "url": getattr(p, "url", None),
-                    "section": getattr(p, "section", None),
-                    "score": float(getattr(p, "score", 0.0) or 0.0),
-                }
-            )
-        return serialized
-
-
     def _retrieval_step(self, state: AgentState) -> AgentState:
         """Retrieve relevant passages based on the query."""
         start_time = perf_counter()
@@ -249,7 +244,6 @@ class AgentWorkflow:
                 "[START] Running summary writing step",
                 extra={"query_preview": query[:80], "passages_context_length": len(passages_context)},
             )
-
 
             summary_text = self.summary_writer.write_summary(query, passages_context) if passages_context else None
 
@@ -355,30 +349,34 @@ class AgentWorkflow:
             self._ui("response_building", "end")
 
 
-    def run(self, query: str) -> AgentState:
-        """Run the compiled workflow with the given query."""
-        start_time = perf_counter()
+    def _serialize_passages(self, passages: List[Any]) -> List[Dict[str, Any]]:
+        """Serialize Passage objects into dictionaries."""
+        serialized: List[Dict[str, Any]] = []
+        for p in passages:
+            serialized.append(
+                {
+                    "text": getattr(p, "text", ""),
+                    "url": getattr(p, "url", None),
+                    "section": getattr(p, "section", None),
+                    "score": float(getattr(p, "score", 0.0) or 0.0),
+                }
+            )
+        return serialized
+
+
+    def _ui(self, step: str, phase: str, label: str | None = None) -> None:
+        """Safely emit UI events if a callback is provided.
+
+        step: machine step name, e.g. 'retrieval'
+        phase: 'start' | 'end'
+        label: optional human-friendly label
+        """
+        cb = self.on_event
+        if not cb:
+            return
         try:
-            logger.debug("Starting agent workflow \n", extra={"query": query})
-            self._ui("workflow", "start", "Starting analysis…")
-            initial_state: AgentState = {
-                "query": query,
-                "safety_intent_decision": {},
-                "detected_drug_names": [],
-                "passages": [],
-                "passages_context": "",
-                "summary_initial": None,
-                "summary_draft": None,
-                "summary_critique": None,
-                "answer": {},
-            }
-            final_state = self.compiled_workflow.invoke(initial_state)
-            return final_state
-        except Exception as e:
-            logger.exception("Agent workflow execution failed", extra={"query": query})
-            raise
-        finally:
-            elapsed_s = perf_counter() - start_time
-            logger.info("Total inference latency: %.2f s", elapsed_s)
-            print('-'*50)
-            self._ui("workflow", "end", "Analysis complete")
+            cb(step, phase, label)
+        except Exception:
+            # Never let UI wiring break the agent
+            logger.debug("UI callback failed for step=%s phase=%s", step, phase)
+

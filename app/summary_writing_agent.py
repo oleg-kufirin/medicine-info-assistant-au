@@ -60,10 +60,7 @@ class SummaryWritingAgent:
             self._last_error = error_payload
             return None
 
-        if isinstance(result, str):
-            summary_text = result.strip()
-        else:
-            summary_text = getattr(result, "content", "").strip()
+        summary_text = result.strip()
         return summary_text or None
 
 
@@ -79,15 +76,23 @@ class SummaryWritingAgent:
 
         critique_text = self._format_critique(critique)
 
+        # Invoke the chain and handle exceptions
         try:
-            revision = chain.invoke({"query": query, "context": preformatted_passages, "draft": draft, "critique": critique_text,})
-        except Exception:
-            return None
+            result = chain.invoke({"query": query, "context": preformatted_passages, "draft": draft, "critique": critique_text,})
+        except Exception as e:
+            # Capture and log the error
+            err_msg = str(e)
+            error_payload: Dict[str, Any] = {"kind": "unknown", "message": err_msg}
+            # Check for Groq API-specific errors
+            import groq
+            if isinstance(e, groq.APIStatusError):
+                status = getattr(e, "status_code", None)
+                error_payload = {"kind": "groq_api_error", "status_code": status, "message": err_msg, }
+            logger.warning("Summarization failed: %s; returning None", err_msg)
+            self._last_error = error_payload
+            return None        
 
-        if isinstance(revision, str):
-            revised_text = revision.strip()
-        else:
-            revised_text = getattr(revision, "content", "").strip()
+        revised_text = result.strip()
         return revised_text or None
 
 
@@ -165,17 +170,22 @@ class SummaryWritingAgent:
         self._rewrite_chain = prompt | llm | parser
         return self._rewrite_chain
 
+
     @staticmethod
     def _format_critique(critique: Dict[str, Any] | None) -> str:
+        """Format the critique dictionary into a string for the rewrite prompt."""
         if not critique:
             return "No critique provided."
 
         parts: List[str] = []
+
+        # Extract issues
         issues = critique.get("issues") or []
         if issues:
             parts.append("Issues:")
             parts.extend(f"- {str(issue).strip()}" for issue in issues if str(issue).strip())
 
+        # Extract revision instructions
         instructions = str(critique.get("revision_instructions", "") or "").strip()
         if instructions:
             parts.append("\nRevision Instructions:")
