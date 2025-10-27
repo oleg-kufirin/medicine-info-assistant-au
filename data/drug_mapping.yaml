@@ -12,6 +12,58 @@
 # - Field name is intentionally spelled "active_ingridients" to match the code.
 # - First matching key is used in order of priority: exact URL, exact filename, then substring.
 
+##### Diabetes - DPP-4 Inhibitors #####
+
+"CP-2011-PI-03485-3.pdf":
+  drug_name: "Trajenta"
+  active_ingridients: ["Linagliptin"]
+
+"CP-2011-CMI-03486-3.pdf":
+  drug_name: "Trajenta"
+  active_ingridients: ["Linagliptin"]
+
+#####
+
+"CP-2010-PI-03937-3.pdf":
+  drug_name: "Januvia"
+  active_ingridients: ["Sitagliptin phosphate monohydrate"]
+
+"CP-2010-CMI-03938-3.pdf":
+  drug_name: "Januvia"
+  active_ingridients: ["Sitagliptin phosphate monohydrate"]
+
+#####
+
+"CP-2011-PI-02123-3.pdf":
+  drug_name: "Onglyza"
+  active_ingridients: ["Saxagliptin hydrochloride"]
+
+"CP-2014-CMI-02150-1.pdf":
+  drug_name: "Onglyza"
+  active_ingridients: ["Saxagliptin hydrochloride"]
+
+#####
+
+"CP-2010-PI-07768-3.pdf":
+  drug_name: "Galvus"
+  active_ingridients: ["Vildagliptin"]
+
+"CP-2010-CMI-03823-3.pdf":
+  drug_name: "Galvus"
+  active_ingridients: ["Vildagliptin"]
+
+#####
+
+"CP-2013-PI-02235-1.pdf":
+  drug_name: "Nesina"
+  active_ingridients: ["Alogliptin benzoate"]
+
+"CP-2013-CMI-02333-1.pdf":
+  drug_name: "Nesina"
+  active_ingridients: ["Alogliptin benzoate"]
+
+##### Diabetes - SGLT2 Inhibitors #####
+
 "CP-2014-CMI-03399-1.pdf":
   drug_name: "Jardiance"
   active_ingridients: ["Empagliflozin"]
@@ -30,7 +82,17 @@
   drug_name: "Jardiamet"
   active_ingridients: ["Empagliflozin", "Metformin hydrochloride"]
 
-#####
+######
+
+"CP-2012-PI-02861-1.pdf":
+  drug_name: "Forxiga"
+  active_ingridients: ["Dapagliflozin propanediol monohydrate"]
+
+"CP-2013-CMI-01654-1.pdf":
+  drug_name: "Forxiga"
+  active_ingridients: ["Dapagliflozin propanediol monohydrate"]
+
+##### DPP-4 Inhibitors + SGLT2 Inhibitors #####
 
 "CP-2018-CMI-01336-1.pdf":
   drug_name: "Glyxambi"
@@ -41,6 +103,16 @@
   active_ingridients: ["Empagliflozin", "Linagliptin"]
 
 #####
+
+"CP-2016-PI-02701-1.pdf":
+  drug_name: "Qtern"
+  active_ingridients: ["Saxagliptin hydrochloride", "Dapagliflozin propanediol monohydrate"]
+
+"CP-2018-CMI-01373-1.pdf":
+  drug_name: "Qtern"
+  active_ingridients: ["Saxagliptin hydrochloride", "Dapagliflozin propanediol monohydrate"]
+
+##### GLP-1 Receptor Agonists #####
 
 "CP-2020-CMI-01750-1.pdf":
   drug_name: "Ozempic"
@@ -62,41 +134,36 @@
 
 #####
 
-"CP-2019-CMI-01699-1.pdf":
-  drug_name: "Escitalopram Sandoz"
-  active_ingridients: ["Escitalopram oxalate"]
+"CP-2015-PI-01412-1.pdf":
+  drug_name: "Trulicity"
+  active_ingridients: ["Dulaglutide (rch)"]
 
-"CP-2019-PI-01698-1.pdf":
-  drug_name: "Escitalopram Sandoz"
-  active_ingridients: ["Escitalopram oxalate"]
-
-#####
-
-"CP-2010-CMI-05608-3.pdf":
-  drug_name: "Lexapro"
-  active_ingridients: ["Escitalopram oxalate"]
-
-"CP-2010-PI-06883-3.pdf":
-  drug_name: "Lexapro"
-  active_ingridients: ["Escitalopram oxalate"]
+"CP-2018-CMI-01316-1.pdf":
+  drug_name: "Trulicity"
+  active_ingridients: ["Dulaglutide (rch)"]
 
 #####
 
-"CP-2015-CMI-01012-1.pdf":
-  drug_name: "Brintellix"
-  active_ingridients: ["Vortioxetine hydrobromide"]
-
-"CP-2014-PI-01635-1.pdf":
-  drug_name: "Brintellix"
-  active_ingridients: ["Vortioxetine hydrobromide"]
+"CP-2012-CMI-02303-3.pdf":
+  drug_name: "Victoza"
+  active_ingridients: ["Liraglutide"]
 
 #####
 
-"CP-2023-CMI-01248-1.pdf":
-  drug_name: "Zoloft"
-  active_ingridients: ["Sertraline hydrochloride"]
+"CP-2016-PI-01008-1.pdf":
+  drug_name: "Saxenda"
+  active_ingridients: ["Liraglutide (rys)"]
 
-"CP-2023-PI-02438-1.pdf":
-  drug_name: "Zoloft"
-  active_ingridients: ["Sertraline hydrochloride"]
+"CP-2016-CMI-01009-1.pdf":
+  drug_name: "Saxenda"
+  active_ingridients: ["Liraglutide (rys)"]
 
+#####
+
+"CP-2023-PI-02114-1.pdf":
+  drug_name: "Mounjaro"
+  active_ingridients: ["Tirzepatide"]
+
+"CP-2024-CMI-02440-1.pdf":
+  drug_name: "Mounjaro"
+  active_ingridients: ["Tirzepatide"]
