@@ -7,8 +7,8 @@ load_dotenv()
 def load_prompt(name: str, base_dir: Optional[str] = None) -> Optional[str]:
     """Load a prompt text by name from app/prompts.
 
-    - Accepts either a bare name (e.g., "system_safety_classifier") or a filename
-      (e.g., "system_safety_classifier.txt").
+    - Accepts either a bare name (e.g., "safety_moderation") or a filename
+      (e.g., "safety_moderation.txt").
     - Returns the file contents stripped, or None if missing/empty.
     """
     if not name:

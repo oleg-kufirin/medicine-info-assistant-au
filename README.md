@@ -64,7 +64,7 @@ patient-assistant/
     response_builder.py      # Formats answers for the UI
     utils.py
     prompts/
-      system_safety_classifier.txt
+      safety_moderation.txt
       system_summary.txt
   data/
     downloads/               # Local CMI/PI PDFs

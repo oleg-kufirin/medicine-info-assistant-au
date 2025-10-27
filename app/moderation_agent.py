@@ -109,7 +109,7 @@ class ModerationAgent:
         if llm is None:
             return None
 
-        system_prompt = load_prompt("system_safety_classifier")
+        system_prompt = load_prompt("safety_moderation")
         if not system_prompt:
             return None
 
