@@ -140,14 +140,22 @@ with hero_container:
         with pill_row[0]:
             st.markdown('<div class="pill-button">', unsafe_allow_html=True)
             if st.button("Drug list", key="drug_list_button"):
-                st.session_state.pill_state["drug_list"] = True
-                st.session_state.pill_state["sample_questions"] = False
+                # Toggle drug_list panel; when enabling, disable sample_questions
+                current = bool(st.session_state.pill_state.get("drug_list", False))
+                new_val = not current
+                st.session_state.pill_state["drug_list"] = new_val
+                if new_val:
+                    st.session_state.pill_state["sample_questions"] = False
             st.markdown("</div>", unsafe_allow_html=True)
         with pill_row[1]:
             st.markdown('<div class="pill-button">', unsafe_allow_html=True)
             if st.button("Sample questions", key="sample_questions_button"):
-                st.session_state.pill_state["sample_questions"] = True
-                st.session_state.pill_state["drug_list"] = False
+                # Toggle sample_questions panel; when enabling, disable drug_list
+                current = bool(st.session_state.pill_state.get("sample_questions", False))
+                new_val = not current
+                st.session_state.pill_state["sample_questions"] = new_val
+                if new_val:
+                    st.session_state.pill_state["drug_list"] = False
             st.markdown("</div>", unsafe_allow_html=True)
         # Spacer: pill_row[2]
         with pill_row[2]:
@@ -186,7 +194,7 @@ pill_state = st.session_state.get("pill_state", {})
 if pill_state.get("drug_list"):
     if RAG_DRUG_NAMES:
         drug_list_display = ", ".join(RAG_DRUG_NAMES)
-        st.info(f"Available RAG entries: {drug_list_display}")
+        st.info(f"Available diabetes drug entries (DPP-4 + SGLT-2 + GLP-1): {drug_list_display}")
     else:
         st.info(
             "No drugs configured yet. Update `app/data/rag_drug_names.txt` to keep this list in sync with your RAG."
@@ -203,7 +211,7 @@ elif pill_state.get("sample_questions"):
 with st.form(key="query_form"):
     st.write("### Ask about a medicine")
     query = st.text_input(
-        "Phrase your question using information found in CMI or PI documents",
+        "Phrase your question clearly to get accurate information from the CMI/PI documents.",
         key="query",
         placeholder="e.g. What precautions are listed for apixaban in the PI?",
     )

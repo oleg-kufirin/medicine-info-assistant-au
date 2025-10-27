@@ -1,2 +1,5 @@
 # Python bytecode and cache
 __pycache__/
+
+# Pytest cache (should not be committed)
+.pytest_cache/
