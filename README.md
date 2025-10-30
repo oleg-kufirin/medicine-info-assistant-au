@@ -45,6 +45,14 @@ streamlit run app/main.py
 ```
 The UI supports optional branding by placing a `hero-banner.jpg` file in `app/assets/`.
 
+## Agents
+- ModerationAgent (`app/moderation_agent.py`): Classifies user input for safety and intent using a Groq model and the `prompts/safety_moderation.txt` system prompt. Blocks emergencies, self-harm, and personalised medical advice.
+- DrugDetectionAgent (`app/drug_detection_agent.py`): Detects medicine names in the query to improve retrieval focus.
+- RetrievalAgent (`app/retrieval_agent.py`): Searches a FAISS index (SentenceTransformers embeddings) to fetch relevant passages from PBS/TGA sources.
+- ReflectionAgent (`app/reflection_agent.py`): Optionally critiques the drafted answer for coverage/grounding and suggests improvements.
+- SummaryWritingAgent (`app/summary_writing_agent.py`): Writes a concise, citation-ready summary from retrieved passages.
+- Agent Runner (`app/agent_runner.py`): Orchestrates the flow: moderation → drug detection → retrieval → optional reflection → summary/response.
+
 ## Moderation regression check
 The moderation harness exercises a catalogue of safe, blocked, and off-policy prompts:
 ```bash
@@ -57,15 +65,20 @@ Skipped cases usually mean the safety chain could not start (for example, missin
 patient-assistant/
   app/
     main.py                  # Streamlit UI
-    agent_runner.py          # Orchestrates moderation -> retrieval -> answer
-    moderation.py            # Safety + intent classifier via Groq
-    retrieval.py             # FAISS-backed passage search
-    summarize.py             # Optional LLM summarisation
+    agent_runner.py          # Orchestrates the end-to-end flow
+    moderation_agent.py      # Safety + intent classifier via Groq
+    drug_detection_agent.py  # Medicine mention detection
+    retrieval_agent.py       # FAISS-backed passage search
+    reflection_agent.py      # Optional response critique
+    summary_writing_agent.py # Optional LLM summarisation
     response_builder.py      # Formats answers for the UI
     utils.py
     prompts/
       safety_moderation.txt
       system_summary.txt
+      system_summary_rewrite.txt
+      system_reflection.txt
+      system_drug_detection.txt
   data/
     downloads/               # Local CMI/PI PDFs
     index/                   # docs.jsonl + faiss.index
