@@ -21,7 +21,7 @@ logging.getLogger(swa.__name__).setLevel(logging.INFO)
 logging.getLogger(ra.__name__).setLevel(logging.INFO)
 
 st.set_page_config(
-    page_title="Patient Information Assistant (CMI/PI) - MVP",
+    page_title="Patient Information Assistant (CMI/PI)",
     layout="wide",
     page_icon=":pill:",
 )
@@ -134,9 +134,9 @@ SAMPLE_QUESTIONS = load_lines(SAMPLE_QUESTIONS_PATH)
 
 hero_container = st.container()
 with hero_container:
-    left, right = st.columns([3, 1.6])
+    left, right = st.columns([3, 1.4])
     with left:
-        pill_row = st.columns([1.1, 2, 4])
+        pill_row = st.columns([1.1, 2, 4], gap="small")
         with pill_row[0]:
             st.markdown('<div class="pill-button">', unsafe_allow_html=True)
             if st.button("Drug list", key="drug_list_button"):
@@ -160,19 +160,51 @@ with hero_container:
         # Spacer: pill_row[2]
         with pill_row[2]:
             # Align segmented control to the right within this column using subcolumns
-            right_align = st.columns([2, 1])
-            with right_align[1]:
-                st.segmented_control(
-                    "Mode",
-                    options=["Light", "Advanced"],
-                    default="Advanced",
-                    key="run_mode_segment",
-                    help="Light mode skips review/rewrite for faster results",
-                )
+            right_align = st.columns([1,1,1,3], gap="small")
+            with right_align[3]:
+                # About (left) + Mode segmented control (right)
+                seg_col, about_col = st.columns([2, 1.1], gap="small", vertical_alignment="bottom")
+                with seg_col:
+                    st.segmented_control(
+                        "Mode",
+                        options=["Light", "Advanced"],
+                        default="Advanced",
+                        key="run_mode_segment",
+                        help="Light mode skips review/rewrite for faster results",
+                        # label_visibility="collapsed",
+                    )                
+                with about_col:
+                    if hasattr(st, "popover"):
+                        with st.popover("About"):
+                            st.markdown("Developed by **Oleg Kufirin**")
+                            st.caption("Data scienist & AI professional. Navigating the intersection of AI and medicine.")
+                            row = st.columns([1, 1], gap="small")
+                            with row[0]:
+                                icon_col, btn_col = st.columns([0.25, 0.75], gap="small")
+                                with icon_col:
+                                    st.image(
+                                        "https://cdn-icons-png.flaticon.com/512/174/174857.png",
+                                        width=35,
+                                    )
+                                with btn_col:
+                                    st.link_button(
+                                        "LinkedIn",
+                                        "https://www.linkedin.com/in/oleg-kufirin"
+                                    )
+                            with row[1]:
+                                icon_col, btn_col = st.columns([0.25, 0.75], gap="small")
+                                with icon_col:
+                                    st.image(
+                                        "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+                                        width=40,
+                                    )
+                                with btn_col:
+                                    st.link_button("GitHub", "https://github.com/oleg-kufirin")
+
         st.markdown(
             (
                 "<div class='hero-card'>"
-                "<div class='hero-title'>Patient Information Assistant (CMI/PI)</div>"
+                "<div class='hero-title'>Patient Information Assistant (CMI/PI) with Agentic AI</div>"
                 "<div class='hero-subtitle'>Find authoritative Consumer Medicine Information (CMI) and Product Information (PI) answers in seconds.<br/>Designed as a safety-first assistant &mdash; never a substitute for professional medical advice.</div>"
                 "</div>"
             ),
@@ -215,6 +247,7 @@ with st.form(key="query_form"):
         key="query",
         placeholder="e.g. What precautions are listed for apixaban in the PI?",
     )
+    st.caption("Note: Advanced mode may exceed 1 min due to LLM provider token limit (~6000 tokens/min). For faster results, use Light mode.")
     submitted = st.form_submit_button("Search CMI / PI")
 
 # When user submits, run and persist result so it survives reruns
@@ -329,7 +362,7 @@ if result:
         initial_summary = result.get("summary_initial")
         if summary or initial_summary:
             if summary and initial_summary and summary.strip() != initial_summary.strip():
-                revised_tab, initial_tab = st.tabs(["Revised Summary", "Initial Draft"])
+                revised_tab, initial_tab = st.tabs(["Revised Summary", "Initial Summary"])
                 with revised_tab:
                     st.markdown("**Revised Summary**")
                     st.write(summary)
@@ -400,3 +433,4 @@ if result:
         disclaimer = answer.get("disclaimer") or "General information only, not medical advice."
         if disclaimer:
             st.caption(disclaimer)
+
