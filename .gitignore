@@ -1,5 +1,37 @@
 # Python bytecode and cache
 __pycache__/
+*.py[cod]
+*$py.class
 
-# Pytest cache (should not be committed)
+# Test/coverage caches
 .pytest_cache/
+.coverage*
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Local environment variables (never commit secrets)
+.env
+!.env.example
+
+# Streamlit local state/secrets
+.streamlit/credentials.toml
+.streamlit/secrets.toml
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.code-workspace
+
+# OS metadata
+.DS_Store
+Thumbs.db
