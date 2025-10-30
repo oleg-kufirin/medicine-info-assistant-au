@@ -1,4 +1,8 @@
-# Patient Information Assistant (CMI/PI) - MVP
+# Patient Information Assistant (CMI/PI) with Agentic AI
+
+<p align="center">
+  <img src="logo.png" alt="Patient Information Assistant" width="500">
+</p>
 
 A safety-first retrieval assistant that answers questions using official Australian Consumer Medicine Information (CMI) and Product Information (PI) documents. The Streamlit UI routes every query through moderation, vector search, and LLM summarisation before showing a response with citations and a disclaimer.
 
