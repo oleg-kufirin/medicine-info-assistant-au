@@ -1,10 +1,11 @@
 streamlit==1.50.0
 langchain==0.2.10
-langchain-core==0.2.10
+# Let langchain resolve the compatible core version (>=0.2.22). Do not pin langchain-core.
 langchain-groq>=0.1.5,<0.2
 groq>=0.9.0
 langgraph>=0.1.0
-faiss-cpu==1.8.0.post1
+# Use a faiss-cpu version with wheels for newer Python versions (incl. 3.13)
+faiss-cpu==1.12.0
 sentence-transformers==3.0.1
 pdfminer.six==20231228
 requests==2.32.3
