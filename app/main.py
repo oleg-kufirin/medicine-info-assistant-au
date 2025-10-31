@@ -49,27 +49,12 @@ CUSTOM_CSS = """
     color: #1e3a5f;
     margin-bottom: 1.0rem;
 }
-.pill-button button {
-    border-radius: 999px !important;
-    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 70%) !important;
-    color: #ffffff !important;
-    padding: 0.35rem 1rem !important;
-    font-size: 0.85rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.02em !important;
-    border: none !important;
-    box-shadow: none !important;
-    width: 100%;
-}
-.pill-button button:hover {
-    background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%) !important;
-}
 .stButton > button {
     background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
     color: #fff;
     border: none;
     border-radius: 12px;
-    padding: 0.65rem 1.75rem;
+    padding: 0.1rem 1rem;
     font-weight: 600;
     box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
 }
@@ -86,7 +71,6 @@ CUSTOM_CSS = """
 .highlight-list li {
     margin-bottom: 0.4rem;
 }
-
 .hero-placeholder {
     display: flex;
     align-items: center;
@@ -100,7 +84,6 @@ CUSTOM_CSS = """
     text-align: center;
     padding: 1.25rem;
 }
-
 /* Segmented control: selected tab (simple + robust) */
 div[data-testid="stSegmentedControl"] [role="tablist"] [aria-selected="true"] {
     background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
@@ -108,7 +91,16 @@ div[data-testid="stSegmentedControl"] [role="tablist"] [aria-selected="true"] {
     border-color: #2563eb !important;
     box-shadow: none !important;
     outline: none !important;
+    padding: 0.1rem 1rem;
 }
+div[data-testid="stPopover"] button { 
+    border: none;
+    border-radius: 12px;
+    padding: 0.1rem 1rem;
+    font-weight: 600;
+    box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
+}
+
 </style>
 """
 
@@ -135,70 +127,57 @@ hero_container = st.container()
 with hero_container:
     left, right = st.columns([3, 1.4])
     with left:
-        pill_row = st.columns([1.1, 2, 4], gap="small")
-        with pill_row[0]:
-            st.markdown('<div class="pill-button">', unsafe_allow_html=True)
-            if st.button("Drug list", key="drug_list_button"):
+        c1, c2, c3, c4 = st.columns([1, 1, 0.7, 1], gap="small", vertical_alignment="bottom")
+        with c1:
+            if st.button("Drug list", key="drug_list_button", use_container_width=True):
                 # Toggle drug_list panel; when enabling, disable sample_questions
                 current = bool(st.session_state.pill_state.get("drug_list", False))
                 new_val = not current
                 st.session_state.pill_state["drug_list"] = new_val
                 if new_val:
                     st.session_state.pill_state["sample_questions"] = False
-            st.markdown("</div>", unsafe_allow_html=True)
-        with pill_row[1]:
-            st.markdown('<div class="pill-button">', unsafe_allow_html=True)
-            if st.button("Sample questions", key="sample_questions_button"):
+        with c2:
+            if st.button("Sample questions", key="sample_questions_button", use_container_width=True):
                 # Toggle sample_questions panel; when enabling, disable drug_list
                 current = bool(st.session_state.pill_state.get("sample_questions", False))
                 new_val = not current
                 st.session_state.pill_state["sample_questions"] = new_val
                 if new_val:
                     st.session_state.pill_state["drug_list"] = False
-            st.markdown("</div>", unsafe_allow_html=True)
-        # Spacer: pill_row[2]
-        with pill_row[2]:
-            # Align segmented control to the right within this column using subcolumns
-            right_align = st.columns([1,1,1,3], gap="small")
-            with right_align[3]:
-                # About (left) + Mode segmented control (right)
-                seg_col, about_col = st.columns([2, 1.1], gap="small", vertical_alignment="bottom")
-                with seg_col:
-                    st.segmented_control(
-                        "Mode",
-                        options=["Light", "Advanced"],
-                        default="Advanced",
-                        key="run_mode_segment",
-                        help="Light mode skips review/rewrite for faster results",
-                        # label_visibility="collapsed",
-                    )                
-                with about_col:
-                    if hasattr(st, "popover"):
-                        with st.popover("About"):
-                            st.markdown("Developed by **Oleg Kufirin**")
-                            st.caption("Data scienist & AI professional. Navigating the intersection of AI and medicine.")
-                            row = st.columns([1, 1], gap="small")
-                            with row[0]:
-                                icon_col, btn_col = st.columns([0.25, 0.75], gap="small")
-                                with icon_col:
-                                    st.image(
-                                        "https://cdn-icons-png.flaticon.com/512/174/174857.png",
-                                        width=35,
-                                    )
-                                with btn_col:
-                                    st.link_button(
-                                        "LinkedIn",
-                                        "https://www.linkedin.com/in/oleg-kufirin"
-                                    )
-                            with row[1]:
-                                icon_col, btn_col = st.columns([0.25, 0.75], gap="small")
-                                with icon_col:
-                                    st.image(
-                                        "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
-                                        width=40,
-                                    )
-                                with btn_col:
-                                    st.link_button("GitHub", "https://github.com/oleg-kufirin")
+        with c3:
+            st.segmented_control(
+                "Mode",
+                options=["Light", "Advanced"],
+                default="Advanced",
+                key="run_mode_segment",
+                help="Light mode skips review/rewrite for faster results",
+            )
+        with c4:
+            with st.popover("ℹ️ About"):
+                st.markdown("Developed by **Oleg Kufirin**")
+                st.caption("Data scienist & AI professional. Navigating the intersection of AI and medicine.")
+                row = st.columns([1, 1], gap="small")
+                with row[0]:
+                    icon_col, btn_col = st.columns([0.25, 0.75], gap="small")
+                    with icon_col:
+                        st.image(
+                            "https://cdn-icons-png.flaticon.com/512/174/174857.png",
+                            width=35,
+                        )
+                    with btn_col:
+                        st.link_button(
+                            "LinkedIn",
+                            "https://www.linkedin.com/in/oleg-kufirin"
+                        )
+                with row[1]:
+                    icon_col, btn_col = st.columns([0.25, 0.75], gap="small")
+                    with icon_col:
+                        st.image(
+                            "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+                            width=40,
+                        )
+                    with btn_col:
+                        st.link_button("GitHub", "https://github.com/oleg-kufirin")
 
         st.markdown(
             (
